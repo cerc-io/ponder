@@ -43,7 +43,18 @@ cli
 
     const ponder = new Ponder({ options: devOptions });
     registerKilledProcessListener(() => ponder.kill());
-    await ponder.dev();
+
+    try {
+      await ponder.dev();
+    } catch (err) {
+      ponder.common.logger.error({
+        service: "app",
+        msg: (err as Error).message,
+        error: err as Error,
+      });
+
+      await ponder.kill();
+    }
   });
 
 cli
@@ -57,7 +68,28 @@ cli
 
     const ponder = new Ponder({ options: startOptions });
     registerKilledProcessListener(() => ponder.kill());
-    await ponder.start();
+
+    try {
+      await ponder.start();
+    } catch (err) {
+      ponder.common.logger.error({
+        service: "app",
+        msg: (err as Error).message,
+        error: err as Error,
+      });
+
+      await ponder.kill();
+    }
+
+    // Kill app on user error
+    ponder.common.errors.on("error", async () => {
+      ponder.common.logger.fatal({
+        service: "error",
+        msg: `Killing app on user error`,
+      });
+
+      await ponder.kill();
+    });
   });
 
 cli
@@ -75,7 +107,18 @@ cli
 
     const ponder = new Ponder({ options: codegenOptions });
     registerKilledProcessListener(() => ponder.kill());
-    await ponder.codegen();
+
+    try {
+      await ponder.codegen();
+    } catch (err) {
+      ponder.common.logger.error({
+        service: "app",
+        msg: (err as Error).message,
+        error: err as Error,
+      });
+
+      await ponder.kill();
+    }
   });
 
 cli.parse();
