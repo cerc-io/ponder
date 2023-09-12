@@ -37,6 +37,7 @@
     "typecheck": "tsc --project tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@apollo/client": "^3.8.3",
     "@babel/code-frame": "^7.18.6",
     "@cerc-io/nitro-node": "^0.1.13",
     "@cerc-io/nitro-util": "^0.1.13",
@@ -58,6 +59,7 @@
     "glob": "^8.1.0",
     "graphql": "^15.3.0",
     "graphql-http": "^1.22.0",
+    "graphql-ws": "^5.14.0",
     "http-terminator": "^3.2.0",
     "ink": "^3.2.0",
     "kysely": "^0.26.3",
