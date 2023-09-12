@@ -10,6 +10,7 @@ import { type LogFilter, buildLogFilters } from "@/config/logFilters";
 import { type Network, buildNetwork } from "@/config/networks";
 import { type Options } from "@/config/options";
 import { UserErrorService } from "@/errors/service";
+import { InternalEventAggregatorService } from "@/event-aggregator/internal-service";
 import { EventAggregatorService } from "@/event-aggregator/service";
 import { PostgresEventStore } from "@/event-store/postgres/store";
 import { SqliteEventStore } from "@/event-store/sqlite/store";
@@ -134,7 +135,7 @@ export class Ponder {
       });
     });
 
-    this.eventAggregatorService = new EventAggregatorService({
+    this.eventAggregatorService = new InternalEventAggregatorService({
       common,
       eventStore: this.eventStore,
       networks,

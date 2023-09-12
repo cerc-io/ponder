@@ -28,7 +28,7 @@
     "resolveJsonModule": true,
 
     // Language and environment
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "Node", // By using Node, ECMAScript module packages (@apollo packages) get resolved properly
     "module": "ESNext",
     "target": "ESNext",
     "lib": [

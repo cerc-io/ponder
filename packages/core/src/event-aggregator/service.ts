@@ -54,7 +54,6 @@ export interface EventAggregatorService
    * @param options.includeLogFilterEvents Map of log filter name -> selector -> ABI event item for which to include full event objects.
    * @returns A promise resolving to an array of log events.
    */
-  // TODO: Remove void from return type
   getEvents({
     fromTimestamp,
     toTimestamp,
@@ -79,7 +78,7 @@ export interface EventAggregatorService
         count: number;
       }[];
     };
-  }> | void;
+  }>;
 
   handleNewHistoricalCheckpoint({
     chainId,
