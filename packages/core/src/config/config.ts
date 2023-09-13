@@ -85,6 +85,8 @@ export type ResolvedConfig = {
   options?: {
     /** Maximum number of seconds to wait for event processing to be complete before responding as healthy. If event processing exceeds this duration, the API may serve incomplete data. Default: `240` (4 minutes). */
     maxHealthcheckDuration?: number;
+    /** Boolean to enable/disable using GQL indexing service */
+    useGqlIndexing?: boolean;
   };
 };
 

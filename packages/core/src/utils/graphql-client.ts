@@ -2,6 +2,7 @@ import { ApolloClient, HttpLink, InMemoryCache, split } from "@apollo/client";
 import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
 import { getMainDefinition } from "@apollo/client/utilities";
 import { createClient } from "graphql-ws";
+import WebSocket from "ws";
 
 /**
  * Method to create a client for GQL queries and subscriptions
@@ -21,6 +22,7 @@ export const createGqlClient = ({
   const wsLink = new GraphQLWsLink(
     createClient({
       url: subscriptionEndpoint,
+      webSocketImpl: WebSocket,
     })
   );
 

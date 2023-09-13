@@ -328,7 +328,9 @@ export class GqlEventAggregatorService
   }) => {
     const { gql } = await import("@apollo/client/core");
 
-    const { data: result } = await this.gqlClient.query({
+    const {
+      data: { getLogEvents },
+    } = await this.gqlClient.query({
       query: gql`
         query getLogEvents(
           $fromTimestamp: Int!
@@ -342,14 +344,23 @@ export class GqlEventAggregatorService
           ) {
             events {
               logFilterName
-              log
-              block
-              transaction
+              # log
+              # block
+              # transaction
             }
             metadata {
               pageEndsAtTimestamp
-              counts
-              cursor
+              counts {
+                logFilterName
+                selector
+                count
+              }
+              cursor {
+                timestamp
+                chainId
+                blockNumber
+                logIndex
+              }
               isLastPage
             }
           }
@@ -357,7 +368,8 @@ export class GqlEventAggregatorService
       `,
       variables,
     });
-    return result as {
+
+    return getLogEvents as {
       events: any[];
       metadata: {
         pageEndsAtTimestamp: number;

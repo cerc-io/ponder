@@ -10,12 +10,14 @@ import { type LogFilter, buildLogFilters } from "@/config/logFilters";
 import { type Network, buildNetwork } from "@/config/networks";
 import { type Options } from "@/config/options";
 import { UserErrorService } from "@/errors/service";
+import { GqlEventAggregatorService } from "@/event-aggregator/gql-service";
 import { InternalEventAggregatorService } from "@/event-aggregator/internal-service";
 import { EventAggregatorService } from "@/event-aggregator/service";
 import { PostgresEventStore } from "@/event-store/postgres/store";
 import { SqliteEventStore } from "@/event-store/sqlite/store";
 import { type EventStore } from "@/event-store/store";
 import { HistoricalSyncService } from "@/historical-sync/service";
+import { IndexingServerService } from "@/indexing-server/service";
 import { LoggerService } from "@/logs/service";
 import { MetricsService } from "@/metrics/service";
 import { RealtimeSyncService } from "@/realtime-sync/service";
@@ -26,6 +28,7 @@ import { EventHandlerService } from "@/user-handlers/service";
 import { PostgresUserStore } from "@/user-store/postgres/store";
 import { SqliteUserStore } from "@/user-store/sqlite/store";
 import { type UserStore } from "@/user-store/store";
+import { createGqlClient } from "@/utils/graphql-client";
 
 export type Common = {
   options: Options;
@@ -54,6 +57,7 @@ export class Ponder {
   eventHandlerService: EventHandlerService;
 
   serverService: ServerService;
+  indexingServerService: IndexingServerService;
   buildService: BuildService;
   codegenService: CodegenService;
   uiService: UiService;
@@ -135,12 +139,29 @@ export class Ponder {
       });
     });
 
-    this.eventAggregatorService = new InternalEventAggregatorService({
+    this.indexingServerService = new IndexingServerService({
       common,
       eventStore: this.eventStore,
-      networks,
-      logFilters,
     });
+
+    const gqlClient = createGqlClient({
+      httpEndpoint: `http://localhost:${this.indexingServerService.port}`,
+      subscriptionEndpoint: `http://localhost:${this.indexingServerService.port}`,
+    });
+
+    this.eventAggregatorService = options.useGqlIndexing
+      ? new GqlEventAggregatorService({
+          common,
+          gqlClient,
+          networks,
+          logFilters,
+        })
+      : new InternalEventAggregatorService({
+          common,
+          eventStore: this.eventStore,
+          networks,
+          logFilters,
+        });
 
     this.eventHandlerService = new EventHandlerService({
       common,
@@ -191,6 +212,10 @@ export class Ponder {
           (n) => `"${n.name}"`
         )}). Did you forget to add an RPC URL in .env.local?`
       );
+    }
+
+    if (this.common.options.useGqlIndexing) {
+      await this.indexingServerService.start();
     }
 
     // Start the HTTP server.

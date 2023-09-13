@@ -63,7 +63,8 @@
     "retry": "^0.13.1",
     "stacktrace-parser": "^0.1.10",
     "tsc-alias": "^1.8.2",
-    "viem": "^1.2.6"
+    "viem": "^1.2.6",
+    "ws": "^8.14.1"
   },
   "devDependencies": {
     "@types/babel__code-frame": "^7.0.3",
@@ -79,6 +80,7 @@
     "@types/react": "^18.0.25",
     "@types/retry": "^0.12.2",
     "@types/supertest": "^2.0.12",
+    "@types/ws": "^8.5.5",
     "@viem/anvil": "^0.0.6",
     "abitype": "^0.8.11",
     "concurrently": "^8.2.0",
