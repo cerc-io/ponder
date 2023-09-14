@@ -30,7 +30,6 @@ export class GqlEventAggregatorService
   implements EventAggregatorService
 {
   private common: Common;
-  // TODO: Replace with actual type
   private gqlClient: ApolloClient<NormalizedCacheObject>;
   private logFilters: LogFilter[];
   private networks: Network[];
@@ -319,12 +318,25 @@ export class GqlEventAggregatorService
     }[];
     cursor?: Cursor;
   }) => {
+    // Sanitize filter values for GQL query
+    if (variables.filters) {
+      variables.filters.forEach((filter) => {
+        if (filter.address && !Array.isArray(filter.address)) {
+          filter.address = [filter.address];
+        }
+
+        if (filter.topics) {
+          filter.topics = filter.topics.map((topic) =>
+            topic && !Array.isArray(topic) ? [topic] : topic
+          );
+        }
+      });
+    }
+
     const { gql } = await import("@apollo/client/core");
 
     const {
-      data: {
-        getLogEvents: { events, metadata },
-      },
+      data: { getLogEvents },
     } = await this.gqlClient.query({
       query: gql`
         query getLogEvents(
@@ -419,8 +431,14 @@ export class GqlEventAggregatorService
       variables,
     });
 
+    const {
+      __typename,
+      cursor: { __typename: cursorTypename, ...cursor },
+      ...metadata
+    } = getLogEvents.metadata;
+
     return {
-      events: events.map((event: any) => ({
+      events: getLogEvents.events.map((event: any) => ({
         ...event,
         log: {
           ...event.log,
@@ -454,7 +472,10 @@ export class GqlEventAggregatorService
             BigInt(event.transaction.maxPriorityFeePerGas),
         },
       })),
-      metadata,
+      metadata: {
+        ...metadata,
+        cursor,
+      },
     } as {
       events: {
         logFilterName: string;

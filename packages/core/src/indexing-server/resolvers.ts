@@ -1,20 +1,23 @@
 import { EventStore } from "@/event-store/store";
 import { blobToBigInt } from "@/utils/decode";
+import { intToBlob } from "@/utils/encode";
 
-const PAGE_SIZE = 10_000;
+const PAGE_SIZE = 100;
 
 export const getResolvers = (eventStore: EventStore) => {
   const getLogEvents = async (args: any) => {
     try {
       const { fromTimestamp, toTimestamp, filters, cursor } = args;
 
-      // TODO: Sanitize filters and cursor
-
       const iterator = eventStore.getLogEvents({
         fromTimestamp,
         toTimestamp,
         filters,
-        cursor,
+        cursor: cursor && {
+          ...cursor,
+          timestamp: intToBlob(cursor.timestamp),
+          blockNumber: intToBlob(cursor.blockNumber),
+        },
         pageSize: PAGE_SIZE,
       });
 
