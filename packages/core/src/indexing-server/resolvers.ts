@@ -2,7 +2,7 @@ import { EventStore } from "@/event-store/store";
 import { blobToBigInt } from "@/utils/decode";
 import { intToBlob } from "@/utils/encode";
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 10_000;
 
 export const getResolvers = (eventStore: EventStore) => {
   const getLogEvents = async (args: any) => {
