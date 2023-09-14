@@ -98,9 +98,7 @@ export class IndexingServerService {
 
     const graphqlMiddleware = graphqlHTTP({
       schema: indexingSchema,
-      // TODO: Pass eventStore
-      rootValue: getResolvers(),
-      context: { store: this.eventStore },
+      rootValue: getResolvers(this.eventStore),
       graphiql: true,
     });
 
