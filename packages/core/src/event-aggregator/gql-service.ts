@@ -6,6 +6,9 @@ import type { LogFilterName } from "@/build/handlers";
 import type { LogEventMetadata, LogFilter } from "@/config/logFilters";
 import type { Network } from "@/config/networks";
 import type { Common } from "@/Ponder";
+import type { Block } from "@/types/block";
+import type { Log } from "@/types/log";
+import type { Transaction } from "@/types/transaction";
 import { formatShortDate } from "@/utils/date";
 
 import type {
@@ -14,6 +17,13 @@ import type {
   EventAggregatorService,
   LogEvent,
 } from "./service";
+
+type Cursor = {
+  timestamp: number;
+  chainId: number;
+  blockNumber: number;
+  logIndex: number;
+};
 
 export class GqlEventAggregatorService
   extends Emittery<EventAggregatorEvents>
@@ -102,14 +112,7 @@ export class GqlEventAggregatorService
         | undefined;
     };
   }) {
-    let cursor:
-      | {
-          timestamp: Buffer;
-          chainId: number;
-          blockNumber: Buffer;
-          logIndex: number;
-        }
-      | undefined;
+    let cursor: Cursor | undefined;
 
     while (true) {
       const { events, metadata } = await this.getLogEvents({
@@ -132,52 +135,49 @@ export class GqlEventAggregatorService
       // Set cursor to fetch next batch of events from indexingClient GQL query
       cursor = metadata.cursor;
 
-      const decodedEvents = (events as any[]).reduce<LogEvent[]>(
-        (acc, event) => {
-          const selector = event.log.topics[0];
-          if (!selector) {
-            throw new Error(
-              `Received an event log with no selector: ${event.log}`
-            );
-          }
+      const decodedEvents = events.reduce<LogEvent[]>((acc, event) => {
+        const selector = event.log.topics[0];
+        if (!selector) {
+          throw new Error(
+            `Received an event log with no selector: ${event.log}`
+          );
+        }
 
-          const logEventMetadata =
-            includeLogFilterEvents[event.logFilterName]?.bySelector[selector];
-          if (!logEventMetadata) {
-            throw new Error(
-              `Metadata for event ${event.logFilterName}:${selector} not found in includeLogFilterEvents`
-            );
-          }
-          const { abiItem, safeName } = logEventMetadata;
+        const logEventMetadata =
+          includeLogFilterEvents[event.logFilterName]?.bySelector[selector];
+        if (!logEventMetadata) {
+          throw new Error(
+            `Metadata for event ${event.logFilterName}:${selector} not found in includeLogFilterEvents`
+          );
+        }
+        const { abiItem, safeName } = logEventMetadata;
 
-          try {
-            const decodedLog = decodeEventLog({
-              abi: [abiItem],
-              data: event.log.data,
-              topics: event.log.topics,
-            });
+        try {
+          const decodedLog = decodeEventLog({
+            abi: [abiItem],
+            data: event.log.data,
+            topics: event.log.topics,
+          });
 
-            acc.push({
-              logFilterName: event.logFilterName,
-              eventName: safeName,
-              params: decodedLog.args || {},
-              log: event.log,
-              block: event.block,
-              transaction: event.transaction,
-            });
-          } catch (err) {
-            // TODO: emit a warning here that a log was not decoded.
-            this.common.logger.error({
-              service: "app",
-              msg: `Unable to decode log (skipping it): ${event.log}`,
-              error: err as Error,
-            });
-          }
+          acc.push({
+            logFilterName: event.logFilterName,
+            eventName: safeName,
+            params: decodedLog.args || {},
+            log: event.log,
+            block: event.block,
+            transaction: event.transaction,
+          });
+        } catch (err) {
+          // TODO: emit a warning here that a log was not decoded.
+          this.common.logger.error({
+            service: "app",
+            msg: `Unable to decode log (skipping it): ${event.log}`,
+            error: err as Error,
+          });
+        }
 
-          return acc;
-        },
-        []
-      );
+        return acc;
+      }, []);
 
       yield { events: decodedEvents, metadata };
 
@@ -317,36 +317,86 @@ export class GqlEventAggregatorService
       toBlock?: number;
       includeEventSelectors?: Hex[];
     }[];
-    cursor:
-      | {
-          timestamp: Buffer;
-          chainId: number;
-          blockNumber: Buffer;
-          logIndex: number;
-        }
-      | undefined;
+    cursor?: Cursor;
   }) => {
     const { gql } = await import("@apollo/client/core");
 
     const {
-      data: { getLogEvents },
+      data: {
+        getLogEvents: { events, metadata },
+      },
     } = await this.gqlClient.query({
       query: gql`
         query getLogEvents(
           $fromTimestamp: Int!
           $toTimestamp: Int!
-          $filters: [Filter!]!
+          $filters: [Filter!]
+          $cursor: CursorInput
         ) {
           getLogEvents(
             fromTimestamp: $fromTimestamp
             toTimestamp: $toTimestamp
             filters: $filters
+            cursor: $cursor
           ) {
             events {
               logFilterName
-              # log
-              # block
-              # transaction
+              log {
+                id
+                address
+                blockHash
+                blockNumber
+                data
+                logIndex
+                removed
+                topics
+                transactionHash
+                transactionIndex
+              }
+              block {
+                baseFeePerGas
+                difficulty
+                extraData
+                gasLimit
+                gasUsed
+                hash
+                logsBloom
+                miner
+                mixHash
+                nonce
+                number
+                parentHash
+                receiptsRoot
+                sha3Uncles
+                size
+                stateRoot
+                timestamp
+                totalDifficulty
+                transactionsRoot
+              }
+              transaction {
+                blockHash
+                blockNumber
+                from
+                gas
+                hash
+                input
+                nonce
+                r
+                s
+                to
+                transactionIndex
+                v
+                value
+                type
+                gasPrice
+                accessList {
+                  address
+                  storageKeys
+                }
+                maxFeePerGas
+                maxPriorityFeePerGas
+              }
             }
             metadata {
               pageEndsAtTimestamp
@@ -369,12 +419,53 @@ export class GqlEventAggregatorService
       variables,
     });
 
-    return getLogEvents as {
-      events: any[];
+    return {
+      events: events.map((event: any) => ({
+        ...event,
+        log: {
+          ...event.log,
+          blockNumber: BigInt(event.log.blockNumber),
+        },
+        block: {
+          ...event.block,
+          baseFeePerGas:
+            event.block.baseFeePerGas && BigInt(event.block.baseFeePerGas),
+          difficulty: BigInt(event.block.difficulty),
+          gasLimit: BigInt(event.block.gasLimit),
+          gasUsed: BigInt(event.block.gasUsed),
+          number: BigInt(event.block.number),
+          size: BigInt(event.block.size),
+          timestamp: BigInt(event.block.timestamp),
+          totalDifficulty: BigInt(event.block.totalDifficulty),
+        },
+        transaction: {
+          ...event.transaction,
+          blockNumber: BigInt(event.transaction.blockNumber),
+          gas: BigInt(event.transaction.gas),
+          v: BigInt(event.transaction.v),
+          value: BigInt(event.transaction.value),
+          gasPrice:
+            event.transaction.gasPrice && BigInt(event.transaction.gasPrice),
+          maxFeePerGas:
+            event.transaction.maxFeePerGas &&
+            BigInt(event.transaction.maxFeePerGas),
+          maxPriorityFeePerGas:
+            event.transaction.maxPriorityFeePerGas &&
+            BigInt(event.transaction.maxPriorityFeePerGas),
+        },
+      })),
+      metadata,
+    } as {
+      events: {
+        logFilterName: string;
+        log: Log;
+        block: Block;
+        transaction: Transaction;
+      }[];
       metadata: {
         pageEndsAtTimestamp: number;
         counts: any[];
-        cursor: any;
+        cursor: Cursor;
         isLastPage: boolean;
       };
     };

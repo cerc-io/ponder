@@ -412,6 +412,7 @@ export class PostgresEventStore implements EventStore {
       : null;
   };
 
+  // TODO: Pass and return cursor for pagination
   async *getLogEvents({
     fromTimestamp,
     toTimestamp,
