@@ -51,13 +51,13 @@ export const getResolvers = (eventStore: EventStore) => {
               v: event.transaction.v.toString(),
               value: event.transaction.value.toString(),
               gasPrice:
-                event.transaction.gasPrice &&
+                event.transaction.gasPrice !== undefined &&
                 event.transaction.gasPrice.toString(),
               maxFeePerGas:
-                event.transaction.maxFeePerGas &&
+                event.transaction.maxFeePerGas !== undefined &&
                 event.transaction.maxFeePerGas.toString(),
               maxPriorityFeePerGas:
-                event.transaction.maxPriorityFeePerGas &&
+                event.transaction.maxPriorityFeePerGas !== undefined &&
                 event.transaction.maxPriorityFeePerGas.toString(),
             },
           })),
