@@ -1,6 +1,4 @@
-import { buildSchema } from "graphql";
-
-export const indexingSchema = buildSchema(`
+export const indexingSchema = `
   scalar BigInt
 
   input Filter {
@@ -124,4 +122,13 @@ export const indexingSchema = buildSchema(`
       cursor: CursorInput
     ): LogEventsResult!
   }
-`);
+
+  type Checkpoint {
+    chainId: Int!
+    timestamp: Int!
+  }
+
+  type Subscription {
+    onNewHistoricalCheckpoint: Checkpoint!
+  }
+`;

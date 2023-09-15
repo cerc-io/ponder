@@ -167,6 +167,10 @@ export class InternalEventAggregatorService
     }
   }
 
+  kill() {
+    this.clearListeners();
+  }
+
   handleNewHistoricalCheckpoint = ({
     chainId,
     timestamp,

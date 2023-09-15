@@ -1,4 +1,10 @@
-import type { ApolloClient, NormalizedCacheObject } from "@apollo/client";
+import {
+  type ApolloClient,
+  type DocumentNode,
+  type NormalizedCacheObject,
+  type ObservableSubscription,
+  gql,
+} from "@apollo/client";
 import Emittery from "emittery";
 import { type Hex, Address, decodeEventLog } from "viem";
 
@@ -33,6 +39,7 @@ export class GqlEventAggregatorService
   private gqlClient: ApolloClient<NormalizedCacheObject>;
   private logFilters: LogFilter[];
   private networks: Network[];
+  private subscriptions: ObservableSubscription[] = [];
 
   // Minimum timestamp at which events are available (across all networks).
   checkpoint: number;
@@ -182,6 +189,29 @@ export class GqlEventAggregatorService
 
       if (metadata.isLastPage) break;
     }
+  }
+
+  subscribeToSyncEvents() {
+    this.subscriptions = [
+      this.subscribeGql(
+        gql`
+          subscription {
+            onNewHistoricalCheckpoint {
+              chainId
+              timestamp
+            }
+          }
+        `,
+        ({ data }) => {
+          this.handleNewHistoricalCheckpoint(data.onNewHistoricalCheckpoint);
+        }
+      ),
+    ];
+  }
+
+  kill() {
+    this.subscriptions.forEach((subscription) => subscription.unsubscribe());
+    this.clearListeners();
   }
 
   // TODO: Refactor common methods in event aggregator services
@@ -491,4 +521,14 @@ export class GqlEventAggregatorService
       };
     };
   };
+
+  private subscribeGql(query: DocumentNode, onNext: (value: any) => void) {
+    const observable = this.gqlClient.subscribe({ query });
+
+    return observable.subscribe({
+      next(data) {
+        onNext(data);
+      },
+    });
+  }
 }

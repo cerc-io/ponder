@@ -1,3 +1,4 @@
+import assert from "node:assert";
 import path from "node:path";
 import process from "node:process";
 
@@ -144,9 +145,11 @@ export class Ponder {
       eventStore: this.eventStore,
     });
 
+    const indexingServerGqlEndpoint = `http://localhost:${this.indexingServerService.port}/graphql`;
+
     const gqlClient = createGqlClient({
-      httpEndpoint: `http://localhost:${this.indexingServerService.port}`,
-      subscriptionEndpoint: `http://localhost:${this.indexingServerService.port}`,
+      httpEndpoint: indexingServerGqlEndpoint,
+      subscriptionEndpoint: indexingServerGqlEndpoint,
     });
 
     this.eventAggregatorService = options.useGqlIndexing
@@ -216,6 +219,9 @@ export class Ponder {
 
     if (this.common.options.useGqlIndexing) {
       await this.indexingServerService.start();
+
+      assert(this.eventAggregatorService.subscribeToSyncEvents);
+      this.eventAggregatorService.subscribeToSyncEvents();
     }
 
     // Start the HTTP server.
@@ -322,7 +328,7 @@ export class Ponder {
   }
 
   async kill() {
-    this.eventAggregatorService.clearListeners();
+    this.eventAggregatorService.kill();
 
     this.common.telemetry.record({
       event: "App Killed",
@@ -382,10 +388,17 @@ export class Ponder {
       const { historicalSyncService, realtimeSyncService } = networkSyncService;
 
       historicalSyncService.on("historicalCheckpoint", ({ timestamp }) => {
-        this.eventAggregatorService.handleNewHistoricalCheckpoint({
-          chainId,
-          timestamp,
-        });
+        if (this.common.options.useGqlIndexing) {
+          this.indexingServerService.handleNewHistoricalCheckpoint({
+            chainId,
+            timestamp,
+          });
+        } else {
+          this.eventAggregatorService.handleNewHistoricalCheckpoint({
+            chainId,
+            timestamp,
+          });
+        }
       });
 
       historicalSyncService.on("syncComplete", () => {
