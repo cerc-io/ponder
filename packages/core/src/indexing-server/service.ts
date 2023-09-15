@@ -1,19 +1,24 @@
+import { makeExecutableSchema } from "@graphql-tools/schema";
 import cors from "cors";
 import express from "express";
 import { graphqlHTTP } from "express-graphql";
+import { PubSub } from "graphql-subscriptions";
+import { useServer } from "graphql-ws/lib/use/ws";
 import { createHttpTerminator } from "http-terminator";
 import { createServer, Server } from "node:http";
+import { Server as WebSocketServer } from "ws";
 
 import { EventStore } from "@/event-store/store";
 import type { Common } from "@/Ponder";
 
-import { getResolvers } from "./resolvers";
+import { getResolvers, HISTORICAL_CHECKPOINT } from "./resolvers";
 import { indexingSchema } from "./schema";
 
 // TODO: Refactor common GQL server code with ServerService
 export class IndexingServerService {
   private common: Common;
   private eventStore: EventStore;
+  private pubsub: PubSub;
 
   port: number;
   app?: express.Express;
@@ -32,6 +37,9 @@ export class IndexingServerService {
     this.common = common;
     this.eventStore = eventStore;
     this.port = this.common.options.indexingPort;
+
+    // https://www.apollographql.com/docs/apollo-server/data/subscriptions#the-pubsub-class
+    this.pubsub = new PubSub();
   }
 
   async start() {
@@ -39,6 +47,11 @@ export class IndexingServerService {
     this.app.use(cors());
 
     // TODO: Register metrics for IndexingServerService similar to ServerService
+
+    const schema = makeExecutableSchema({
+      typeDefs: indexingSchema,
+      resolvers: getResolvers(this.eventStore, this.pubsub),
+    });
 
     const server = await new Promise<Server>((resolve, reject) => {
       const server = createServer(this.app)
@@ -97,12 +110,19 @@ export class IndexingServerService {
     });
 
     const graphqlMiddleware = graphqlHTTP({
-      schema: indexingSchema,
-      rootValue: getResolvers(this.eventStore),
+      schema,
       graphiql: true,
     });
 
-    this.app.use("/", graphqlMiddleware);
+    this.app.use("/graphql", graphqlMiddleware);
+
+    // create and use the websocket server
+    const wsServer = new WebSocketServer({
+      server,
+      path: "/graphql",
+    });
+
+    useServer({ schema }, wsServer);
   }
 
   async kill() {
@@ -119,6 +139,12 @@ export class IndexingServerService {
     this.common.logger.info({
       service: "indexing-server",
       msg: `Started responding as healthy`,
+    });
+  }
+
+  handleNewHistoricalCheckpoint(data: { chainId: number; timestamp: number }) {
+    this.pubsub.publish(HISTORICAL_CHECKPOINT, {
+      onNewHistoricalCheckpoint: data,
     });
   }
 }

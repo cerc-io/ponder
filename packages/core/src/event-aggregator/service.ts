@@ -47,6 +47,8 @@ export interface EventAggregatorService
 
   metrics: EventAggregatorMetrics;
 
+  subscribeToSyncEvents?: () => void;
+
   /** Fetches events for all registered log filters between the specified timestamps.
    *
    * @param options.fromTimestamp Timestamp to start including events (inclusive).
@@ -111,4 +113,6 @@ export interface EventAggregatorService
   }: {
     commonAncestorTimestamp: number;
   }): void;
+
+  kill(): void;
 }
