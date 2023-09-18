@@ -128,7 +128,19 @@ export const indexingSchema = `
     timestamp: Int!
   }
 
+  type SyncComplete {
+    chainId: Int!
+  }
+
+  type Reorg {
+    commonAncestorTimestamp: Int!
+  }
+
   type Subscription {
     onNewHistoricalCheckpoint: Checkpoint!
+    onHistoricalSyncComplete: SyncComplete!
+    onNewRealtimeCheckpoint: Checkpoint!
+    onNewFinalityCheckpoint: Checkpoint!
+    onReorg: Reorg!
   }
 `;
