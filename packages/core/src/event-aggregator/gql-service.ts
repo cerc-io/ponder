@@ -206,6 +206,56 @@ export class GqlEventAggregatorService
           this.handleNewHistoricalCheckpoint(data.onNewHistoricalCheckpoint);
         }
       ),
+      this.subscribeGql(
+        gql`
+          subscription {
+            onHistoricalSyncComplete {
+              chainId
+            }
+          }
+        `,
+        ({ data }) => {
+          this.handleHistoricalSyncComplete(data.onHistoricalSyncComplete);
+        }
+      ),
+      this.subscribeGql(
+        gql`
+          subscription {
+            onNewRealtimeCheckpoint {
+              chainId
+              timestamp
+            }
+          }
+        `,
+        ({ data }) => {
+          this.handleNewRealtimeCheckpoint(data.onNewRealtimeCheckpoint);
+        }
+      ),
+      this.subscribeGql(
+        gql`
+          subscription {
+            onNewFinalityCheckpoint {
+              chainId
+              timestamp
+            }
+          }
+        `,
+        ({ data }) => {
+          this.handleNewFinalityCheckpoint(data.onNewFinalityCheckpoint);
+        }
+      ),
+      this.subscribeGql(
+        gql`
+          subscription {
+            onReorg {
+              commonAncestorTimestamp
+            }
+          }
+        `,
+        ({ data }) => {
+          this.handleReorg(data.onReorg);
+        }
+      ),
     ];
   }
 

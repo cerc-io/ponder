@@ -439,9 +439,15 @@ export class Ponder {
       });
 
       historicalSyncService.on("syncComplete", () => {
-        this.eventAggregatorService.handleHistoricalSyncComplete({
-          chainId,
-        });
+        if (this.common.options.useGqlIndexing) {
+          this.indexingServerService.handleHistoricalSyncComplete({
+            chainId,
+          });
+        } else {
+          this.eventAggregatorService.handleHistoricalSyncComplete({
+            chainId,
+          });
+        }
 
         // If payment service is setup, start the realtime sync service after historical sync service.
         // This will avoid parallel requests to RPC endpoint
@@ -451,21 +457,43 @@ export class Ponder {
       });
 
       realtimeSyncService.on("realtimeCheckpoint", ({ timestamp }) => {
-        this.eventAggregatorService.handleNewRealtimeCheckpoint({
-          chainId,
-          timestamp,
-        });
+        if (this.common.options.useGqlIndexing) {
+          this.indexingServerService.handleNewRealtimeCheckpoint({
+            chainId,
+            timestamp,
+          });
+        } else {
+          this.eventAggregatorService.handleNewRealtimeCheckpoint({
+            chainId,
+            timestamp,
+          });
+        }
       });
 
       realtimeSyncService.on("finalityCheckpoint", ({ timestamp }) => {
-        this.eventAggregatorService.handleNewFinalityCheckpoint({
-          chainId,
-          timestamp,
-        });
+        if (this.common.options.useGqlIndexing) {
+          this.indexingServerService.handleNewFinalityCheckpoint({
+            chainId,
+            timestamp,
+          });
+        } else {
+          this.eventAggregatorService.handleNewFinalityCheckpoint({
+            chainId,
+            timestamp,
+          });
+        }
       });
 
       realtimeSyncService.on("shallowReorg", ({ commonAncestorTimestamp }) => {
-        this.eventAggregatorService.handleReorg({ commonAncestorTimestamp });
+        if (this.common.options.useGqlIndexing) {
+          this.indexingServerService.handleReorg({
+            commonAncestorTimestamp,
+          });
+        } else {
+          this.eventAggregatorService.handleReorg({
+            commonAncestorTimestamp,
+          });
+        }
       });
     });
 

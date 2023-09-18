@@ -11,7 +11,14 @@ import { Server as WebSocketServer } from "ws";
 import { EventStore } from "@/event-store/store";
 import type { Common } from "@/Ponder";
 
-import { getResolvers, HISTORICAL_CHECKPOINT } from "./resolvers";
+import {
+  FINALITY_CHECKPOINT,
+  getResolvers,
+  HISTORICAL_CHECKPOINT,
+  REALTIME_CHECKPOINT,
+  SHALLOW_REORG,
+  SYNC_COMPLETE,
+} from "./resolvers";
 import { indexingSchema } from "./schema";
 
 // TODO: Refactor common GQL server code with ServerService
@@ -145,6 +152,30 @@ export class IndexingServerService {
   handleNewHistoricalCheckpoint(data: { chainId: number; timestamp: number }) {
     this.pubsub.publish(HISTORICAL_CHECKPOINT, {
       onNewHistoricalCheckpoint: data,
+    });
+  }
+
+  handleHistoricalSyncComplete(data: { chainId: number }) {
+    this.pubsub.publish(SYNC_COMPLETE, {
+      onHistoricalSyncComplete: data,
+    });
+  }
+
+  handleNewRealtimeCheckpoint(data: { chainId: number; timestamp: number }) {
+    this.pubsub.publish(REALTIME_CHECKPOINT, {
+      onNewRealtimeCheckpoint: data,
+    });
+  }
+
+  handleNewFinalityCheckpoint(data: { chainId: number; timestamp: number }) {
+    this.pubsub.publish(FINALITY_CHECKPOINT, {
+      onNewFinalityCheckpoint: data,
+    });
+  }
+
+  handleReorg(data: { commonAncestorTimestamp: number }) {
+    this.pubsub.publish(SHALLOW_REORG, {
+      onReorg: data,
     });
   }
 }

@@ -7,6 +7,10 @@ import { blobToBigInt } from "@/utils/decode";
 import { intToBlob } from "@/utils/encode";
 
 export const HISTORICAL_CHECKPOINT = "historicalCheckpoint";
+export const SYNC_COMPLETE = "syncComplete";
+export const REALTIME_CHECKPOINT = "realtimeCheckpoint";
+export const FINALITY_CHECKPOINT = "finalityCheckpoint";
+export const SHALLOW_REORG = "shallowReorg";
 
 const PAGE_SIZE = 10_000;
 
@@ -59,6 +63,18 @@ export const getResolvers = (
     Subscription: {
       onNewHistoricalCheckpoint: {
         subscribe: () => pubsub.asyncIterator(HISTORICAL_CHECKPOINT),
+      },
+      onHistoricalSyncComplete: {
+        subscribe: () => pubsub.asyncIterator(SYNC_COMPLETE),
+      },
+      onNewRealtimeCheckpoint: {
+        subscribe: () => pubsub.asyncIterator(REALTIME_CHECKPOINT),
+      },
+      onNewFinalityCheckpoint: {
+        subscribe: () => pubsub.asyncIterator(FINALITY_CHECKPOINT),
+      },
+      onReorg: {
+        subscribe: () => pubsub.asyncIterator(SHALLOW_REORG),
       },
     },
   };
