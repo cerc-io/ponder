@@ -1,11 +1,14 @@
-import type Emittery from "emittery";
-import type { Hex } from "viem";
+import Emittery from "emittery";
+import { type Hex, decodeEventLog } from "viem";
 
 import type { LogFilterName } from "@/build/handlers.js";
-import type { LogEventMetadata } from "@/config/logFilters.js";
+import type { LogEventMetadata, LogFilter } from "@/config/logFilters.js";
+import type { Network } from "@/config/networks.js";
+import type { Common } from "@/Ponder.js";
 import type { Block } from "@/types/block.js";
 import type { Log } from "@/types/log.js";
 import type { Transaction } from "@/types/transaction.js";
+import { formatShortDate } from "@/utils/date.js";
 
 export type LogEvent = {
   logFilterName: string;
@@ -35,8 +38,11 @@ export type EventAggregatorEvents = {
 
 export type EventAggregatorMetrics = {};
 
-export interface EventAggregatorService
-  extends Emittery<EventAggregatorEvents> {
+export abstract class EventAggregatorService extends Emittery<EventAggregatorEvents> {
+  protected common;
+  protected logFilters: LogFilter[];
+  private networks: Network[];
+
   // Minimum timestamp at which events are available (across all networks).
   checkpoint: number;
   // Minimum finalized timestamp (across all networks).
@@ -45,9 +51,48 @@ export interface EventAggregatorService
   // Timestamp at which the historical sync was completed (across all networks).
   historicalSyncCompletedAt?: number;
 
+  // Per-network event timestamp checkpoints.
+  private networkCheckpoints: Record<
+    number,
+    {
+      isHistoricalSyncComplete: boolean;
+      historicalCheckpoint: number;
+      realtimeCheckpoint: number;
+      finalityCheckpoint: number;
+    }
+  >;
+
   metrics: EventAggregatorMetrics;
 
-  subscribeToSyncEvents?: () => void;
+  constructor({
+    common,
+    networks,
+    logFilters,
+  }: {
+    common: Common;
+    networks: Network[];
+    logFilters: LogFilter[];
+  }) {
+    super();
+
+    this.common = common;
+    this.logFilters = logFilters;
+    this.networks = networks;
+    this.metrics = {};
+
+    this.checkpoint = 0;
+    this.finalityCheckpoint = 0;
+
+    this.networkCheckpoints = {};
+    this.networks.forEach((network) => {
+      this.networkCheckpoints[network.chainId] = {
+        isHistoricalSyncComplete: false,
+        historicalCheckpoint: 0,
+        realtimeCheckpoint: 0,
+        finalityCheckpoint: 0,
+      };
+    });
+  }
 
   /** Fetches events for all registered log filters between the specified timestamps.
    *
@@ -56,7 +101,7 @@ export interface EventAggregatorService
    * @param options.includeLogFilterEvents Map of log filter name -> selector -> ABI event item for which to include full event objects.
    * @returns A promise resolving to an array of log events.
    */
-  getEvents({
+  abstract getEvents({
     fromTimestamp,
     toTimestamp,
     includeLogFilterEvents,
@@ -82,37 +127,186 @@ export interface EventAggregatorService
     };
   }>;
 
-  handleNewHistoricalCheckpoint({
+  subscribeToSyncEvents?(): void;
+
+  kill() {
+    this.clearListeners();
+  }
+
+  handleNewHistoricalCheckpoint = ({
     chainId,
     timestamp,
   }: {
     chainId: number;
     timestamp: number;
-  }): void;
+  }) => {
+    this.networkCheckpoints[chainId].historicalCheckpoint = timestamp;
 
-  handleHistoricalSyncComplete({ chainId }: { chainId: number }): void;
+    this.common.logger.trace({
+      service: "aggregator",
+      msg: `New historical checkpoint at ${timestamp} [${formatShortDate(
+        timestamp
+      )}] (chainId=${chainId})`,
+    });
 
-  handleNewRealtimeCheckpoint({
+    this.recalculateCheckpoint();
+  };
+
+  handleHistoricalSyncComplete = ({ chainId }: { chainId: number }) => {
+    this.networkCheckpoints[chainId].isHistoricalSyncComplete = true;
+    this.recalculateCheckpoint();
+
+    // If every network has completed the historical sync, set the metric.
+    const networkCheckpoints = Object.values(this.networkCheckpoints);
+    if (networkCheckpoints.every((n) => n.isHistoricalSyncComplete)) {
+      const maxHistoricalCheckpoint = Math.max(
+        ...networkCheckpoints.map((n) => n.historicalCheckpoint)
+      );
+      this.historicalSyncCompletedAt = maxHistoricalCheckpoint;
+
+      this.common.logger.debug({
+        service: "aggregator",
+        msg: `Completed historical sync across all networks`,
+      });
+    }
+  };
+
+  handleNewRealtimeCheckpoint = ({
     chainId,
     timestamp,
   }: {
     chainId: number;
     timestamp: number;
-  }): void;
+  }) => {
+    this.networkCheckpoints[chainId].realtimeCheckpoint = timestamp;
 
-  handleNewFinalityCheckpoint({
+    this.common.logger.trace({
+      service: "aggregator",
+      msg: `New realtime checkpoint at ${timestamp} [${formatShortDate(
+        timestamp
+      )}] (chainId=${chainId})`,
+    });
+
+    this.recalculateCheckpoint();
+  };
+
+  handleNewFinalityCheckpoint = ({
     chainId,
     timestamp,
   }: {
     chainId: number;
     timestamp: number;
-  }): void;
+  }) => {
+    this.networkCheckpoints[chainId].finalityCheckpoint = timestamp;
+    this.recalculateFinalityCheckpoint();
+  };
 
-  handleReorg({
+  handleReorg = ({
     commonAncestorTimestamp,
   }: {
     commonAncestorTimestamp: number;
-  }): void;
+  }) => {
+    this.emit("reorg", { commonAncestorTimestamp });
+  };
 
-  kill(): void;
+  protected decodeEvents = (
+    events: {
+      logFilterName: string;
+      log: Log;
+      block: Block;
+      transaction: Transaction;
+    }[],
+    includeLogFilterEvents: {
+      [logFilterName: LogFilterName]:
+        | {
+            bySelector: { [selector: Hex]: LogEventMetadata };
+          }
+        | undefined;
+    }
+  ) => {
+    return events.reduce<LogEvent[]>((acc, event) => {
+      const selector = event.log.topics[0];
+      if (!selector) {
+        throw new Error(`Received an event log with no selector: ${event.log}`);
+      }
+
+      const logEventMetadata =
+        includeLogFilterEvents[event.logFilterName]?.bySelector[selector];
+      if (!logEventMetadata) {
+        throw new Error(
+          `Metadata for event ${event.logFilterName}:${selector} not found in includeLogFilterEvents`
+        );
+      }
+      const { abiItem, safeName } = logEventMetadata;
+
+      try {
+        const decodedLog = decodeEventLog({
+          abi: [abiItem],
+          data: event.log.data,
+          topics: event.log.topics,
+        });
+
+        acc.push({
+          logFilterName: event.logFilterName,
+          eventName: safeName,
+          params: decodedLog.args || {},
+          log: event.log,
+          block: event.block,
+          transaction: event.transaction,
+        });
+      } catch (err) {
+        // TODO: emit a warning here that a log was not decoded.
+        this.common.logger.error({
+          service: "app",
+          msg: `Unable to decode log (skipping it): ${event.log}`,
+          error: err as Error,
+        });
+      }
+
+      return acc;
+    }, []);
+  };
+
+  private recalculateCheckpoint = () => {
+    const checkpoints = Object.values(this.networkCheckpoints).map((n) =>
+      n.isHistoricalSyncComplete
+        ? Math.max(n.historicalCheckpoint, n.realtimeCheckpoint)
+        : n.historicalCheckpoint
+    );
+    const newCheckpoint = Math.min(...checkpoints);
+
+    if (newCheckpoint > this.checkpoint) {
+      this.checkpoint = newCheckpoint;
+
+      this.common.logger.trace({
+        service: "aggregator",
+        msg: `New event checkpoint at ${this.checkpoint} [${formatShortDate(
+          this.checkpoint
+        )}]`,
+      });
+
+      this.emit("newCheckpoint", { timestamp: this.checkpoint });
+    }
+  };
+
+  private recalculateFinalityCheckpoint = () => {
+    const newFinalityCheckpoint = Math.min(
+      ...Object.values(this.networkCheckpoints).map((n) => n.finalityCheckpoint)
+    );
+
+    if (newFinalityCheckpoint > this.finalityCheckpoint) {
+      this.finalityCheckpoint = newFinalityCheckpoint;
+
+      this.common.logger.trace({
+        service: "aggregator",
+        msg: `New finality checkpoint at ${
+          this.finalityCheckpoint
+        } [${formatShortDate(this.finalityCheckpoint)}]`,
+      });
+
+      this.emit("newFinalityCheckpoint", {
+        timestamp: this.finalityCheckpoint,
+      });
+    }
+  };
 }
