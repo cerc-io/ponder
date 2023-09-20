@@ -10,8 +10,8 @@ export type ResolvedConfig = {
   database?:
     | {
         kind: "sqlite";
-        /** Path to SQLite database file. Default: `"./.ponder/cache.db"`. */
-        filename?: string;
+        /** Path to SQLite database directory. Default: `"./.ponder/cache"`. */
+        directory?: string;
       }
     | {
         kind: "postgres";
@@ -101,8 +101,8 @@ export type ResolvedConfig = {
   options?: {
     /** Maximum number of seconds to wait for event processing to be complete before responding as healthy. If event processing exceeds this duration, the API may serve incomplete data. Default: `240` (4 minutes). */
     maxHealthcheckDuration?: number;
-    /** Boolean to enable/disable using GQL indexing service */
-    useGqlIndexing?: boolean;
+    /** GQL endpoint of the indexer, required when running app in watcher mode */
+    indexerGqlEndpoint?: string;
   };
   /** Configuration for setting up Nitro node */
   nitro?: {
