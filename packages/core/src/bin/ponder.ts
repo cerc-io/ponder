@@ -7,7 +7,7 @@ import dotenv from "dotenv";
 import path from "node:path";
 
 import { buildConfig } from "@/config/config";
-import { buildOptions } from "@/config/options";
+import { AppMode, buildOptions } from "@/config/options";
 import { Ponder } from "@/Ponder";
 
 // NOTE: This is a workaround for tsconfig `rootDir` nonsense.
@@ -26,12 +26,16 @@ const cli = cac("ponder")
   })
   .option("--root-dir [path]", `Path to project root directory`, {
     default: ".",
+  })
+  .option("--mode [mode]", `Mode of the Ponder app`, {
+    default: AppMode.Standalone,
   });
 
 export type CliOptions = {
   help?: boolean;
   configFile: string;
   rootDir: string;
+  mode: AppMode;
 };
 
 cli

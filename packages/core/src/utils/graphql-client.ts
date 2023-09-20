@@ -8,20 +8,14 @@ import WebSocket from "ws";
  * Method to create a client for GQL queries and subscriptions
  * https://www.apollographql.com/docs/react/data/subscriptions
  */
-export const createGqlClient = ({
-  httpEndpoint,
-  subscriptionEndpoint,
-}: {
-  httpEndpoint: string;
-  subscriptionEndpoint: string;
-}) => {
+export const createGqlClient = (gqlEndpoint: string) => {
   const httpLink = new HttpLink({
-    uri: httpEndpoint,
+    uri: gqlEndpoint,
   });
 
   const wsLink = new GraphQLWsLink(
     createClient({
-      url: subscriptionEndpoint,
+      url: gqlEndpoint,
       webSocketImpl: WebSocket,
     })
   );

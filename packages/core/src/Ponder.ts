@@ -9,7 +9,7 @@ import { buildContracts } from "@/config/contracts";
 import { buildDatabase } from "@/config/database";
 import { type LogFilter, buildLogFilters } from "@/config/logFilters";
 import { type Network, buildNetwork } from "@/config/networks";
-import { type Options } from "@/config/options";
+import { type Options, AppMode } from "@/config/options";
 import { UserErrorService } from "@/errors/service";
 import { GqlEventAggregatorService } from "@/event-aggregator/gql-service";
 import { InternalEventAggregatorService } from "@/event-aggregator/internal-service";
@@ -145,14 +145,9 @@ export class Ponder {
       eventStore: this.eventStore,
     });
 
-    const indexingServerGqlEndpoint = `http://localhost:${this.indexingServerService.port}/graphql`;
+    const gqlClient = createGqlClient(this.common.options.indexerGqlEndpoint);
 
-    const gqlClient = createGqlClient({
-      httpEndpoint: indexingServerGqlEndpoint,
-      subscriptionEndpoint: indexingServerGqlEndpoint,
-    });
-
-    this.eventAggregatorService = options.useGqlIndexing
+    this.eventAggregatorService = this.checkAppMode(AppMode.Watcher)
       ? new GqlEventAggregatorService({
           common,
           gqlClient,
@@ -199,45 +194,64 @@ export class Ponder {
 
     this.registerServiceDependencies();
 
-    // If any of the provided networks do not have a valid RPC url,
-    // kill the app here. This happens here rather than in the constructor because
-    // `ponder codegen` should still be able to if an RPC url is missing. In fact,
-    // that is part of the happy path for `create-ponder`.
-    const networksMissingRpcUrl: Network[] = [];
-    this.networkSyncServices.forEach(({ network }) => {
-      if (!network.rpcUrl) {
-        networksMissingRpcUrl.push(network);
+    // Setup indexer services if mode is standalone or indexer
+    if (
+      this.checkAppMode(AppMode.Standalone) ||
+      this.checkAppMode(AppMode.Indexer)
+    ) {
+      // If any of the provided networks do not have a valid RPC url,
+      // kill the app here. This happens here rather than in the constructor because
+      // `ponder codegen` should still be able to if an RPC url is missing. In fact,
+      // that is part of the happy path for `create-ponder`.
+      const networksMissingRpcUrl: Network[] = [];
+      this.networkSyncServices.forEach(({ network }) => {
+        if (!network.rpcUrl) {
+          networksMissingRpcUrl.push(network);
+        }
+      });
+      if (networksMissingRpcUrl.length > 0) {
+        return new Error(
+          `missing RPC URL for networks (${networksMissingRpcUrl.map(
+            (n) => `"${n.name}"`
+          )}). Did you forget to add an RPC URL in .env.local?`
+        );
       }
-    });
-    if (networksMissingRpcUrl.length > 0) {
-      return new Error(
-        `missing RPC URL for networks (${networksMissingRpcUrl.map(
-          (n) => `"${n.name}"`
-        )}). Did you forget to add an RPC URL in .env.local?`
-      );
+
+      // Start indexing server if running in indexer mode
+      if (this.checkAppMode(AppMode.Indexer)) {
+        await this.indexingServerService.start();
+
+        // TODO: Remove after adding query for latest checkpoint in indexing server
+        await new Promise((resolve) => setTimeout(resolve, 5000));
+      }
+
+      // Note that this must occur before loadSchema and loadHandlers.
+      await this.eventStore.migrateUp();
     }
 
-    if (this.common.options.useGqlIndexing) {
-      await this.indexingServerService.start();
+    // Setup watcher services if mode is standalone or watcher
+    if (
+      this.checkAppMode(AppMode.Standalone) ||
+      this.checkAppMode(AppMode.Watcher)
+    ) {
+      // Subscribe to Sync service events from indexing server if running in watcher mode
+      if (this.checkAppMode(AppMode.Watcher)) {
+        assert(this.eventAggregatorService.subscribeToSyncEvents);
+        this.eventAggregatorService.subscribeToSyncEvents();
+      }
 
-      assert(this.eventAggregatorService.subscribeToSyncEvents);
-      this.eventAggregatorService.subscribeToSyncEvents();
+      // Start the HTTP server.
+      await this.serverService.start();
+
+      // These files depend only on ponder.config.ts, so can generate once on setup.
+      // Note that loadHandlers depends on the index.ts file being present.
+      this.codegenService.generateAppFile();
+
+      // Manually trigger loading schema and handlers. Subsequent loads
+      // are triggered by changes to project files (handled in BuildService).
+      this.buildService.buildSchema();
+      await this.buildService.buildHandlers();
     }
-
-    // Start the HTTP server.
-    await this.serverService.start();
-
-    // These files depend only on ponder.config.ts, so can generate once on setup.
-    // Note that loadHandlers depends on the index.ts file being present.
-    this.codegenService.generateAppFile();
-
-    // Note that this must occur before loadSchema and loadHandlers.
-    await this.eventStore.migrateUp();
-
-    // Manually trigger loading schema and handlers. Subsequent loads
-    // are triggered by changes to project files (handled in BuildService).
-    this.buildService.buildSchema();
-    await this.buildService.buildHandlers();
 
     return undefined;
   }
@@ -264,17 +278,23 @@ export class Ponder {
       return await this.kill();
     }
 
-    await Promise.all(
-      this.networkSyncServices.map(
-        async ({ historicalSyncService, realtimeSyncService }) => {
-          const blockNumbers = await realtimeSyncService.setup();
-          await historicalSyncService.setup(blockNumbers);
+    // Start sync services if running in standalone or indexer mode
+    if (
+      this.checkAppMode(AppMode.Standalone) ||
+      this.checkAppMode(AppMode.Indexer)
+    ) {
+      await Promise.all(
+        this.networkSyncServices.map(
+          async ({ historicalSyncService, realtimeSyncService }) => {
+            const blockNumbers = await realtimeSyncService.setup();
+            await historicalSyncService.setup(blockNumbers);
 
-          historicalSyncService.start();
-          realtimeSyncService.start();
-        }
-      )
-    );
+            historicalSyncService.start();
+            realtimeSyncService.start();
+          }
+        )
+      );
+    }
 
     this.buildService.watch();
   }
@@ -301,17 +321,23 @@ export class Ponder {
       return await this.kill();
     }
 
-    await Promise.all(
-      this.networkSyncServices.map(
-        async ({ historicalSyncService, realtimeSyncService }) => {
-          const blockNumbers = await realtimeSyncService.setup();
-          await historicalSyncService.setup(blockNumbers);
+    // Start sync services if running in standalone or indexer mode
+    if (
+      this.checkAppMode(AppMode.Standalone) ||
+      this.checkAppMode(AppMode.Indexer)
+    ) {
+      await Promise.all(
+        this.networkSyncServices.map(
+          async ({ historicalSyncService, realtimeSyncService }) => {
+            const blockNumbers = await realtimeSyncService.setup();
+            await historicalSyncService.setup(blockNumbers);
 
-          historicalSyncService.start();
-          realtimeSyncService.start();
-        }
-      )
-    );
+            historicalSyncService.start();
+            realtimeSyncService.start();
+          }
+        )
+      );
+    }
   }
 
   async codegen() {
@@ -368,116 +394,144 @@ export class Ponder {
       await this.kill();
     });
 
-    this.buildService.on("newSchema", async ({ schema, graphqlSchema }) => {
-      this.codegenService.generateAppFile({ schema });
-      this.codegenService.generateSchemaFile({ graphqlSchema });
+    // Register build service listeners if running in standalone or watcher mode
+    if (
+      this.checkAppMode(AppMode.Standalone) ||
+      this.checkAppMode(AppMode.Watcher)
+    ) {
+      this.buildService.on("newSchema", async ({ schema, graphqlSchema }) => {
+        this.codegenService.generateAppFile({ schema });
+        this.codegenService.generateSchemaFile({ graphqlSchema });
 
-      this.serverService.reload({ graphqlSchema });
+        this.serverService.reload({ graphqlSchema });
 
-      await this.eventHandlerService.reset({ schema });
-      await this.eventHandlerService.processEvents();
-    });
-
-    this.buildService.on("newHandlers", async ({ handlers }) => {
-      await this.eventHandlerService.reset({ handlers });
-      await this.eventHandlerService.processEvents();
-    });
-
-    this.networkSyncServices.forEach((networkSyncService) => {
-      const { chainId } = networkSyncService.network;
-      const { historicalSyncService, realtimeSyncService } = networkSyncService;
-
-      historicalSyncService.on("historicalCheckpoint", ({ timestamp }) => {
-        if (this.common.options.useGqlIndexing) {
-          this.indexingServerService.handleNewHistoricalCheckpoint({
-            chainId,
-            timestamp,
-          });
-        } else {
-          this.eventAggregatorService.handleNewHistoricalCheckpoint({
-            chainId,
-            timestamp,
-          });
-        }
-      });
-
-      historicalSyncService.on("syncComplete", () => {
-        if (this.common.options.useGqlIndexing) {
-          this.indexingServerService.handleHistoricalSyncComplete({
-            chainId,
-          });
-        } else {
-          this.eventAggregatorService.handleHistoricalSyncComplete({
-            chainId,
-          });
-        }
-      });
-
-      realtimeSyncService.on("realtimeCheckpoint", ({ timestamp }) => {
-        if (this.common.options.useGqlIndexing) {
-          this.indexingServerService.handleNewRealtimeCheckpoint({
-            chainId,
-            timestamp,
-          });
-        } else {
-          this.eventAggregatorService.handleNewRealtimeCheckpoint({
-            chainId,
-            timestamp,
-          });
-        }
-      });
-
-      realtimeSyncService.on("finalityCheckpoint", ({ timestamp }) => {
-        if (this.common.options.useGqlIndexing) {
-          this.indexingServerService.handleNewFinalityCheckpoint({
-            chainId,
-            timestamp,
-          });
-        } else {
-          this.eventAggregatorService.handleNewFinalityCheckpoint({
-            chainId,
-            timestamp,
-          });
-        }
-      });
-
-      realtimeSyncService.on("shallowReorg", ({ commonAncestorTimestamp }) => {
-        if (this.common.options.useGqlIndexing) {
-          this.indexingServerService.handleReorg({
-            commonAncestorTimestamp,
-          });
-        } else {
-          this.eventAggregatorService.handleReorg({
-            commonAncestorTimestamp,
-          });
-        }
-      });
-    });
-
-    this.eventAggregatorService.on("newCheckpoint", async () => {
-      await this.eventHandlerService.processEvents();
-    });
-
-    this.eventAggregatorService.on(
-      "reorg",
-      async ({ commonAncestorTimestamp }) => {
-        await this.eventHandlerService.handleReorg({ commonAncestorTimestamp });
+        await this.eventHandlerService.reset({ schema });
         await this.eventHandlerService.processEvents();
-      }
-    );
+      });
 
-    this.eventHandlerService.on("eventsProcessed", ({ toTimestamp }) => {
-      if (this.serverService.isHistoricalEventProcessingComplete) return;
+      this.buildService.on("newHandlers", async ({ handlers }) => {
+        await this.eventHandlerService.reset({ handlers });
+        await this.eventHandlerService.processEvents();
+      });
+    }
 
-      // If a batch of events are processed AND the historical sync is complete AND
-      // the new toTimestamp is greater than the historical sync completion timestamp,
-      // historical event processing is complete, and the server should begin responding as healthy.
-      if (
-        this.eventAggregatorService.historicalSyncCompletedAt &&
-        toTimestamp >= this.eventAggregatorService.historicalSyncCompletedAt
-      ) {
-        this.serverService.setIsHistoricalEventProcessingComplete();
-      }
-    });
+    // Register network service listeners if running in standalone or indexer mode
+    if (
+      this.checkAppMode(AppMode.Standalone) ||
+      this.checkAppMode(AppMode.Indexer)
+    ) {
+      this.networkSyncServices.forEach((networkSyncService) => {
+        const { chainId } = networkSyncService.network;
+        const { historicalSyncService, realtimeSyncService } =
+          networkSyncService;
+
+        historicalSyncService.on("historicalCheckpoint", ({ timestamp }) => {
+          if (this.checkAppMode(AppMode.Indexer)) {
+            this.indexingServerService.handleNewHistoricalCheckpoint({
+              chainId,
+              timestamp,
+            });
+          } else {
+            this.eventAggregatorService.handleNewHistoricalCheckpoint({
+              chainId,
+              timestamp,
+            });
+          }
+        });
+
+        historicalSyncService.on("syncComplete", () => {
+          if (this.checkAppMode(AppMode.Indexer)) {
+            this.indexingServerService.handleHistoricalSyncComplete({
+              chainId,
+            });
+          } else {
+            this.eventAggregatorService.handleHistoricalSyncComplete({
+              chainId,
+            });
+          }
+        });
+
+        realtimeSyncService.on("realtimeCheckpoint", ({ timestamp }) => {
+          if (this.checkAppMode(AppMode.Indexer)) {
+            this.indexingServerService.handleNewRealtimeCheckpoint({
+              chainId,
+              timestamp,
+            });
+          } else {
+            this.eventAggregatorService.handleNewRealtimeCheckpoint({
+              chainId,
+              timestamp,
+            });
+          }
+        });
+
+        realtimeSyncService.on("finalityCheckpoint", ({ timestamp }) => {
+          if (this.checkAppMode(AppMode.Indexer)) {
+            this.indexingServerService.handleNewFinalityCheckpoint({
+              chainId,
+              timestamp,
+            });
+          } else {
+            this.eventAggregatorService.handleNewFinalityCheckpoint({
+              chainId,
+              timestamp,
+            });
+          }
+        });
+
+        realtimeSyncService.on(
+          "shallowReorg",
+          ({ commonAncestorTimestamp }) => {
+            if (this.checkAppMode(AppMode.Indexer)) {
+              this.indexingServerService.handleReorg({
+                commonAncestorTimestamp,
+              });
+            } else {
+              this.eventAggregatorService.handleReorg({
+                commonAncestorTimestamp,
+              });
+            }
+          }
+        );
+      });
+    }
+
+    // Register event aggregator and handler service listeners if running in standalone or watcher mode
+    if (
+      this.checkAppMode(AppMode.Standalone) ||
+      this.checkAppMode(AppMode.Watcher)
+    ) {
+      this.eventAggregatorService.on("newCheckpoint", async () => {
+        await this.eventHandlerService.processEvents();
+      });
+
+      this.eventAggregatorService.on(
+        "reorg",
+        async ({ commonAncestorTimestamp }) => {
+          await this.eventHandlerService.handleReorg({
+            commonAncestorTimestamp,
+          });
+          await this.eventHandlerService.processEvents();
+        }
+      );
+
+      this.eventHandlerService.on("eventsProcessed", ({ toTimestamp }) => {
+        if (this.serverService.isHistoricalEventProcessingComplete) return;
+
+        // If a batch of events are processed AND the historical sync is complete AND
+        // the new toTimestamp is greater than the historical sync completion timestamp,
+        // historical event processing is complete, and the server should begin responding as healthy.
+        if (
+          this.eventAggregatorService.historicalSyncCompletedAt &&
+          toTimestamp >= this.eventAggregatorService.historicalSyncCompletedAt
+        ) {
+          this.serverService.setIsHistoricalEventProcessingComplete();
+        }
+      });
+    }
+  }
+
+  private checkAppMode(mode: AppMode) {
+    return this.common.options.mode === mode;
   }
 }
