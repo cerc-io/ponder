@@ -109,13 +109,13 @@ export class Ponder {
     this.eventStore =
       eventStore ??
       (database.kind === "sqlite"
-        ? new SqliteEventStore({ db: database.db })
+        ? new SqliteEventStore({ db: database.eventStoreDb })
         : new PostgresEventStore({ pool: database.pool }));
 
     this.userStore =
       userStore ??
       (database.kind === "sqlite"
-        ? new SqliteUserStore({ db: database.db })
+        ? new SqliteUserStore({ db: database.userStoreDb })
         : new PostgresUserStore({ pool: database.pool }));
 
     networks.forEach((network) => {
