@@ -14,10 +14,23 @@ export const SHALLOW_REORG = "shallowReorg";
 
 const PAGE_SIZE = 10_000;
 
-export const getResolvers = (
-  eventStore: EventStore,
-  pubsub: PubSub
-): IResolvers<any, unknown> => {
+export type NetworkCheckpoints = Record<
+  number,
+  {
+    isHistoricalSyncComplete: boolean;
+    historicalCheckpoint: number;
+  }
+>;
+
+export const getResolvers = ({
+  eventStore,
+  pubsub,
+  networkCheckpoints,
+}: {
+  eventStore: EventStore;
+  pubsub: PubSub;
+  networkCheckpoints: NetworkCheckpoints;
+}): IResolvers<any, unknown> => {
   const getLogEvents: IFieldResolver<any, unknown> = async (_, args) => {
     const { fromTimestamp, toTimestamp, filters, cursor } = args;
 
@@ -53,11 +66,26 @@ export const getResolvers = (
     throw new Error("getLogEvents iterator should run atleast once");
   };
 
+  const getNetworkHistoricalSync: IFieldResolver<any, unknown> = async (
+    _,
+    args
+  ) => {
+    const { chainId } = args;
+    const { historicalCheckpoint, isHistoricalSyncComplete } =
+      networkCheckpoints[chainId];
+
+    return {
+      checkpoint: historicalCheckpoint,
+      isSyncComplete: isHistoricalSyncComplete,
+    };
+  };
+
   return {
     BigInt: new ApolloBigInt("bigInt"),
 
     Query: {
       getLogEvents,
+      getNetworkHistoricalSync,
     },
 
     Subscription: {

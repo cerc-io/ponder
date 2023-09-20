@@ -52,7 +52,7 @@ export abstract class EventAggregatorService extends Emittery<EventAggregatorEve
   historicalSyncCompletedAt?: number;
 
   // Per-network event timestamp checkpoints.
-  private networkCheckpoints: Record<
+  protected networkCheckpoints: Record<
     number,
     {
       isHistoricalSyncComplete: boolean;
@@ -127,7 +127,7 @@ export abstract class EventAggregatorService extends Emittery<EventAggregatorEve
     };
   }>;
 
-  subscribeToSyncEvents?(): void;
+  subscribeToSyncEvents?(): Promise<void>;
 
   kill() {
     this.clearListeners();

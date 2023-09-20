@@ -114,6 +114,11 @@ export const indexingSchema = `
     metadata: Metadata
   }
 
+  type NetworkHistoricalSync {
+    checkpoint: Int!
+    isSyncComplete: Int!
+  }
+
   type Query {
     getLogEvents(
       fromTimestamp: Int!,
@@ -121,6 +126,9 @@ export const indexingSchema = `
       filters: [Filter!],
       cursor: CursorInput
     ): LogEventsResult!
+    getNetworkHistoricalSync(
+      chainId: Int!
+    ): NetworkHistoricalSync!
   }
 
   type Checkpoint {

@@ -143,6 +143,7 @@ export class Ponder {
     this.indexingServerService = new IndexingServerService({
       common,
       eventStore: this.eventStore,
+      networks,
     });
 
     const gqlClient = createGqlClient(this.common.options.indexerGqlEndpoint);
@@ -220,9 +221,6 @@ export class Ponder {
       // Start indexing server if running in indexer mode
       if (this.checkAppMode(AppMode.Indexer)) {
         await this.indexingServerService.start();
-
-        // TODO: Remove after adding query for latest checkpoint in indexing server
-        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
 
       // Note that this must occur before loadSchema and loadHandlers.
@@ -237,7 +235,7 @@ export class Ponder {
       // Subscribe to Sync service events from indexing server if running in watcher mode
       if (this.checkAppMode(AppMode.Watcher)) {
         assert(this.eventAggregatorService.subscribeToSyncEvents);
-        this.eventAggregatorService.subscribeToSyncEvents();
+        await this.eventAggregatorService.subscribeToSyncEvents();
       }
 
       // Start the HTTP server.
