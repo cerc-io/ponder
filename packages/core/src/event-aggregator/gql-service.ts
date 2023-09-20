@@ -103,7 +103,7 @@ export class GqlEventAggregatorService extends EventAggregatorService {
     }
   }
 
-  override subscribeToSyncEvents() {
+  override async subscribeToSyncEvents() {
     this.subscriptions = [
       this.subscribeGql(
         gql`
@@ -169,6 +169,8 @@ export class GqlEventAggregatorService extends EventAggregatorService {
         }
       ),
     ];
+
+    await this.fetchHistoricalSync();
   }
 
   override kill() {
@@ -372,5 +374,42 @@ export class GqlEventAggregatorService extends EventAggregatorService {
         onNext(data);
       },
     });
+  }
+
+  private async fetchHistoricalSync() {
+    const { gql } = await import("@apollo/client/core");
+
+    const queryPromises = Object.keys(this.networkCheckpoints).map(
+      async (chainId) => {
+        const {
+          data: { getNetworkHistoricalSync },
+        } = await this.gqlClient.query({
+          query: gql`
+            query getNetworkHistoricalSync($chainId: Int!) {
+              getNetworkHistoricalSync(chainId: $chainId) {
+                checkpoint
+                isSyncComplete
+              }
+            }
+          `,
+          variables: { chainId: Number(chainId) },
+        });
+
+        const { checkpoint, isSyncComplete } = getNetworkHistoricalSync;
+
+        if (checkpoint) {
+          this.handleNewHistoricalCheckpoint({
+            chainId: Number(chainId),
+            timestamp: checkpoint,
+          });
+        }
+
+        if (isSyncComplete) {
+          this.handleHistoricalSyncComplete({ chainId: Number(chainId) });
+        }
+      }
+    );
+
+    await Promise.all(queryPromises);
   }
 }

@@ -5,6 +5,7 @@ import { PubSub } from "graphql-subscriptions";
 import { useServer } from "graphql-ws/lib/use/ws";
 import { Server as WebSocketServer } from "ws";
 
+import { Network } from "@/config/networks";
 import { EventStore } from "@/event-store/store";
 import type { Common } from "@/Ponder";
 import { Server } from "@/utils/server";
@@ -13,6 +14,7 @@ import {
   FINALITY_CHECKPOINT,
   getResolvers,
   HISTORICAL_CHECKPOINT,
+  NetworkCheckpoints,
   REALTIME_CHECKPOINT,
   SHALLOW_REORG,
   SYNC_COMPLETE,
@@ -25,6 +27,9 @@ export class IndexingServerService {
   private pubsub: PubSub;
   private server: Server;
 
+  // Per-network checkpoints.
+  private networkCheckpoints: NetworkCheckpoints;
+
   app?: express.Express;
 
   isSyncComplete = false;
@@ -32,9 +37,11 @@ export class IndexingServerService {
   constructor({
     common,
     eventStore,
+    networks,
   }: {
     common: Common;
     eventStore: EventStore;
+    networks: Network[];
   }) {
     this.common = common;
     this.eventStore = eventStore;
@@ -46,6 +53,18 @@ export class IndexingServerService {
 
     // https://www.apollographql.com/docs/apollo-server/data/subscriptions#the-pubsub-class
     this.pubsub = new PubSub();
+
+    this.networkCheckpoints = networks.reduce(
+      (acc: NetworkCheckpoints, network) => {
+        acc[network.chainId] = {
+          isHistoricalSyncComplete: false,
+          historicalCheckpoint: 0,
+        };
+
+        return acc;
+      },
+      {}
+    );
   }
 
   get port() {
@@ -58,7 +77,11 @@ export class IndexingServerService {
 
     const schema = makeExecutableSchema({
       typeDefs: indexingSchema,
-      resolvers: getResolvers(this.eventStore, this.pubsub),
+      resolvers: getResolvers({
+        eventStore: this.eventStore,
+        pubsub: this.pubsub,
+        networkCheckpoints: this.networkCheckpoints,
+      }),
     });
 
     const graphqlMiddleware = graphqlHTTP({
@@ -95,12 +118,22 @@ export class IndexingServerService {
     this.pubsub.publish(HISTORICAL_CHECKPOINT, {
       onNewHistoricalCheckpoint: data,
     });
+
+    this.networkCheckpoints[data.chainId].historicalCheckpoint = data.timestamp;
   }
 
   handleHistoricalSyncComplete(data: { chainId: number }) {
     this.pubsub.publish(SYNC_COMPLETE, {
       onHistoricalSyncComplete: data,
     });
+
+    this.networkCheckpoints[data.chainId].isHistoricalSyncComplete = true;
+
+    // If every network has completed the historical sync, call setIsSyncComplete.
+    const networkCheckpoints = Object.values(this.networkCheckpoints);
+    if (networkCheckpoints.every((n) => n.isHistoricalSyncComplete)) {
+      this.setIsSyncComplete();
+    }
   }
 
   handleNewRealtimeCheckpoint(data: { chainId: number; timestamp: number }) {
