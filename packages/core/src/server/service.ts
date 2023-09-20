@@ -145,7 +145,7 @@ export class ServerService {
     await this.server.kill();
   }
 
-  setIsHistoricalEventProcessingComplete() {
+  setIsHistoricalIndexingComplete() {
     this.isHistoricalIndexingComplete = true;
     this.server.isHealthy = true;
 

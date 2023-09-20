@@ -5,6 +5,12 @@ import type { CliOptions } from "@/bin/ponder.js";
 
 import type { ResolvedConfig } from "./config.js";
 
+export enum AppMode {
+  Standalone = "standalone",
+  Indexer = "indexer",
+  Watcher = "watcher",
+}
+
 export type Options = {
   configFile: string;
   schemaFile: string;
@@ -24,7 +30,8 @@ export type Options = {
   logLevel: LevelWithSilent;
   uiEnabled: boolean;
 
-  useGqlIndexing: boolean;
+  mode: AppMode;
+  indexerGqlEndpoint: string;
 };
 
 export const buildOptions = ({
@@ -61,7 +68,9 @@ export const buildOptions = ({
     maxHealthcheckDuration:
       configOptions?.maxHealthcheckDuration ?? railwayHealthcheckTimeout ?? 240,
 
-    useGqlIndexing: configOptions?.useGqlIndexing ?? false,
+    mode: cliOptions.mode,
+    indexerGqlEndpoint:
+      configOptions?.indexerGqlEndpoint ?? "http://localhost:42070/graphql",
 
     telemetryUrl: "https://ponder.sh/api/telemetry",
     telemetryDisabled: Boolean(process.env.PONDER_TELEMETRY_DISABLED),
