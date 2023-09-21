@@ -305,11 +305,18 @@ export class GqlEventAggregatorService extends EventAggregatorService {
       variables,
     });
 
+    // Remove __typename from GQL query result
     const {
       __typename,
-      cursor: { __typename: cursorTypename, ...cursor },
+      cursor: gqlCursor,
       ...metadata
     } = getLogEvents.metadata;
+    let cursor: Cursor | undefined;
+
+    if (gqlCursor) {
+      const { __typename, ...cursorData } = gqlCursor;
+      cursor = cursorData;
+    }
 
     return {
       events: getLogEvents.events.map((event: any) => ({
@@ -360,7 +367,7 @@ export class GqlEventAggregatorService extends EventAggregatorService {
       metadata: {
         pageEndsAtTimestamp: number;
         counts: any[];
-        cursor: Cursor;
+        cursor?: Cursor;
         isLastPage: boolean;
       };
     };
