@@ -96,10 +96,7 @@ export const buildDatabase = ({
 }): Database => {
   let resolvedDatabaseConfig: NonNullable<ResolvedConfig["database"]>;
 
-  const defaultEventStoreSqliteDirectory = path.join(
-    options.ponderDir,
-    "cache"
-  );
+  const defaultSqliteDirectory = path.join(options.ponderDir, "cache");
 
   if (config.database) {
     if (config.database.kind === "postgres") {
@@ -110,8 +107,7 @@ export const buildDatabase = ({
     } else {
       resolvedDatabaseConfig = {
         kind: "sqlite",
-        directory:
-          config.database.directory ?? defaultEventStoreSqliteDirectory,
+        directory: config.database.directory ?? defaultSqliteDirectory,
       };
     }
   } else {
@@ -123,7 +119,7 @@ export const buildDatabase = ({
     } else {
       resolvedDatabaseConfig = {
         kind: "sqlite",
-        directory: defaultEventStoreSqliteDirectory,
+        directory: defaultSqliteDirectory,
       };
     }
   }
@@ -137,9 +133,9 @@ export const buildDatabase = ({
           filename
         );
         ensureDirExists(dbFilePath);
-        const eventStoreRawDb = Sqlite(dbFilePath);
-        eventStoreRawDb.pragma("journal_mode = WAL");
-        return patchSqliteDatabase({ db: eventStoreRawDb });
+        const rawDb = Sqlite(dbFilePath);
+        rawDb.pragma("journal_mode = WAL");
+        return patchSqliteDatabase({ db: rawDb });
       }
     );
 
