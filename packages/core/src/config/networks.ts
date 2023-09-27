@@ -1,4 +1,4 @@
-import { type PublicClient, createPublicClient, http } from "viem";
+import { type PublicClient, createPublicClient, custom, http } from "viem";
 import { mainnet } from "viem/chains";
 
 import type { ResolvedConfig } from "@/config/config";
@@ -24,14 +24,25 @@ export function buildNetwork({
   let client = clients[network.chainId];
 
   if (!client) {
+    const chain = {
+      ...mainnet,
+      name: network.name,
+      id: network.chainId,
+      network: network.name,
+    };
+
     client = createPublicClient({
-      transport: http(network.rpcUrl),
-      chain: {
-        ...mainnet,
-        name: network.name,
-        id: network.chainId,
-        network: network.name,
-      },
+      chain,
+      // TODO: Implement a custom transport to change query params when making requests
+      transport: custom({
+        async request({ method, params }) {
+          // TODO: Make nitro payment and set URL with voucher params
+          const httpTransport = http(network.rpcUrl);
+          const { request } = httpTransport({ chain });
+
+          return request({ method, params });
+        },
+      }),
     });
     clients[network.chainId] = client;
   }
