@@ -86,6 +86,17 @@ export type ResolvedConfig = {
     /** Maximum number of seconds to wait for event processing to be complete before responding as healthy. If event processing exceeds this duration, the API may serve incomplete data. Default: `240` (4 minutes). */
     maxHealthcheckDuration?: number;
   };
+  nitro?: {
+    privateKey: string;
+    chainPrivateKey: string;
+    chainURL: string;
+    contractAddresses: { [key: string]: string };
+    relayMultiAddr: string;
+    rpcNitroNode: {
+      address: string;
+      multiAddr: string;
+    };
+  };
 };
 
 export type Config =

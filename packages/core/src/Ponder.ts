@@ -1,3 +1,4 @@
+import { utils } from "@cerc-io/nitro-node";
 import path from "node:path";
 import process from "node:process";
 
@@ -17,6 +18,7 @@ import { type EventStore } from "@/event-store/store";
 import { HistoricalSyncService } from "@/historical-sync/service";
 import { LoggerService } from "@/logs/service";
 import { MetricsService } from "@/metrics/service";
+import { PaymentService } from "@/payment/service";
 import { RealtimeSyncService } from "@/realtime-sync/service";
 import { ServerService } from "@/server/service";
 import { TelemetryService } from "@/telemetry/service";
@@ -57,6 +59,8 @@ export class Ponder {
   codegenService: CodegenService;
   uiService: UiService;
 
+  paymentService?: PaymentService;
+
   constructor({
     options,
     config,
@@ -68,6 +72,7 @@ export class Ponder {
     // These options are only used for testing.
     eventStore?: EventStore;
     userStore?: UserStore;
+    nitro?: utils.Nitro;
   }) {
     const logger = new LoggerService({
       level: options.logLevel,
@@ -82,10 +87,21 @@ export class Ponder {
 
     const logFilters = buildLogFilters({ options, config });
     this.logFilters = logFilters;
-    const contracts = buildContracts({ options, config });
+
+    if (config.nitro) {
+      this.paymentService = new PaymentService({ config: config.nitro });
+    }
+
+    const contracts = buildContracts({
+      options,
+      config,
+      paymentService: this.paymentService,
+    });
 
     const networks = config.networks
-      .map((network) => buildNetwork({ network }))
+      .map((network) =>
+        buildNetwork({ network, paymentService: this.paymentService })
+      )
       .filter((network) => {
         const hasLogFilters = logFilters.some(
           (logFilter) => logFilter.network === network.name
@@ -206,6 +222,14 @@ export class Ponder {
     // are triggered by changes to project files (handled in BuildService).
     this.buildService.buildSchema();
     await this.buildService.buildHandlers();
+
+    if (this.paymentService) {
+      // Initialize payment service with Nitro node
+      await this.paymentService.init();
+
+      // Setup payment channel nitro
+      await this.paymentService.setupPaymentChannel();
+    }
 
     return undefined;
   }
