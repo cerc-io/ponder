@@ -96,6 +96,8 @@ export type ResolvedConfig = {
       address: string;
       multiAddr: string;
     };
+    store: string;
+    payAmount: string;
   };
 };
 

@@ -89,7 +89,10 @@ export class Ponder {
     this.logFilters = logFilters;
 
     if (config.nitro) {
-      this.paymentService = new PaymentService({ config: config.nitro });
+      this.paymentService = new PaymentService({
+        config: config.nitro,
+        common,
+      });
     }
 
     const contracts = buildContracts({
