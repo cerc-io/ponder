@@ -18,7 +18,7 @@ import { intToBlob } from "@/utils/encode";
 import { mergeIntervals } from "@/utils/intervals";
 import { range } from "@/utils/range";
 
-import type { EventStore } from "../store";
+import type { Cursor, EventStore } from "../store";
 import {
   type EventStoreTables,
   type InsertableBlock,
@@ -388,6 +388,7 @@ export class SqliteEventStore implements EventStore {
     toTimestamp,
     filters = [],
     pageSize = 10_000,
+    cursor,
   }: {
     fromTimestamp: number;
     toTimestamp: number;
@@ -401,6 +402,7 @@ export class SqliteEventStore implements EventStore {
       includeEventSelectors?: Hex[];
     }[];
     pageSize: number;
+    cursor?: Cursor;
   }) {
     const baseQuery = this.db
       .with(
@@ -596,15 +598,6 @@ export class SqliteEventStore implements EventStore {
       count: Number(c.count),
     }));
 
-    let cursor:
-      | {
-          timestamp: Buffer;
-          chainId: number;
-          blockNumber: Buffer;
-          logIndex: number;
-        }
-      | undefined = undefined;
-
     while (true) {
       let query = includedLogsBaseQuery.limit(pageSize);
       if (cursor) {
@@ -757,6 +750,7 @@ export class SqliteEventStore implements EventStore {
         metadata: {
           pageEndsAtTimestamp,
           counts: eventCounts,
+          cursor,
         },
       };
 

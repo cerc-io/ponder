@@ -5,6 +5,12 @@ import type { CliOptions } from "@/bin/ponder";
 
 import type { ResolvedConfig } from "./config";
 
+export enum AppMode {
+  Standalone = "standalone",
+  Indexer = "indexer",
+  Watcher = "watcher",
+}
+
 export type Options = {
   configFile: string;
   schemaFile: string;
@@ -15,6 +21,7 @@ export type Options = {
   logDir: string;
 
   port: number;
+  indexingPort: number;
   maxHealthcheckDuration: number;
   telemetryUrl: string;
   telemetryDisabled: boolean;
@@ -22,6 +29,9 @@ export type Options = {
 
   logLevel: LevelWithSilent;
   uiEnabled: boolean;
+
+  mode: AppMode;
+  indexerGqlEndpoint: string;
 };
 
 export const buildOptions = ({
@@ -54,8 +64,13 @@ export const buildOptions = ({
     logDir: ".ponder/logs",
 
     port: Number(process.env.PORT ?? 42069),
+    indexingPort: Number(process.env.INDEXING_PORT ?? 42070),
     maxHealthcheckDuration:
       configOptions?.maxHealthcheckDuration ?? railwayHealthcheckTimeout ?? 240,
+
+    mode: cliOptions.mode,
+    indexerGqlEndpoint:
+      configOptions?.indexerGqlEndpoint ?? "http://localhost:42070/graphql",
 
     telemetryUrl: "https://ponder.sh/api/telemetry",
     telemetryDisabled: Boolean(process.env.PONDER_TELEMETRY_DISABLED),

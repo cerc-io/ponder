@@ -27,6 +27,13 @@ export type ContractReadResult = {
   result: Hex;
 };
 
+export type Cursor = {
+  timestamp: Buffer;
+  chainId: number;
+  blockNumber: Buffer;
+  logIndex: number;
+};
+
 export interface EventStore {
   kind: "sqlite" | "postgres";
   db: Kysely<any>;
@@ -106,6 +113,7 @@ export interface EventStore {
       includeEventSelectors?: Hex[];
     }[];
     pageSize?: number;
+    cursor?: Cursor;
   }): AsyncGenerator<{
     events: {
       logFilterName: string;
@@ -120,6 +128,7 @@ export interface EventStore {
         selector: Hex;
         count: number;
       }[];
+      cursor?: Cursor;
     };
   }>;
 }
