@@ -2,6 +2,7 @@ import type { Abi, Address } from "abitype";
 
 import type { ResolvedConfig } from "@/config/config";
 import type { Options } from "@/config/options";
+import { PaymentService } from "@/payment/service";
 
 import { buildAbi } from "./abi";
 import { type Network, buildNetwork } from "./networks";
@@ -16,9 +17,11 @@ export type Contract = {
 export function buildContracts({
   config,
   options,
+  paymentService,
 }: {
   config: ResolvedConfig;
   options: Options;
+  paymentService?: PaymentService;
 }): Contract[] {
   return (config.contracts ?? []).map((contract) => {
     const address = contract.address.toLowerCase() as Address;
@@ -36,7 +39,7 @@ export function buildContracts({
       );
     }
 
-    const network = buildNetwork({ network: rawNetwork });
+    const network = buildNetwork({ network: rawNetwork, paymentService });
 
     return {
       name: contract.name,
