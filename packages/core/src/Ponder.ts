@@ -264,9 +264,11 @@ export class Ponder {
         async ({ historicalSyncService, realtimeSyncService }) => {
           const blockNumbers = await realtimeSyncService.setup();
           await historicalSyncService.setup(blockNumbers);
-
           historicalSyncService.start();
-          realtimeSyncService.start();
+
+          if (!this.paymentService) {
+            realtimeSyncService.start();
+          }
         }
       )
     );
@@ -301,9 +303,11 @@ export class Ponder {
         async ({ historicalSyncService, realtimeSyncService }) => {
           const blockNumbers = await realtimeSyncService.setup();
           await historicalSyncService.setup(blockNumbers);
-
           historicalSyncService.start();
-          realtimeSyncService.start();
+
+          if (!this.paymentService) {
+            realtimeSyncService.start();
+          }
         }
       )
     );
@@ -393,6 +397,10 @@ export class Ponder {
         this.eventAggregatorService.handleHistoricalSyncComplete({
           chainId,
         });
+
+        if (this.paymentService) {
+          realtimeSyncService.start();
+        }
       });
 
       realtimeSyncService.on("realtimeCheckpoint", ({ timestamp }) => {

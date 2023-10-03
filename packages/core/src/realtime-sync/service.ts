@@ -404,6 +404,7 @@ export class RealtimeSyncService extends Emittery<RealtimeSyncEvents> {
       );
 
       // Fetch all missing blocks using a request concurrency limit of 10.
+      // TODO: Make realtime block fetch concurrency configurable.
       const limit = pLimit(10);
 
       const missingBlockRequests = missingBlockNumbers.map((number) => {
