@@ -5,6 +5,7 @@ import assert from "node:assert";
 import { ResolvedConfig } from "@/config/config";
 import { Common } from "@/Ponder";
 
+// TODO: Configure channel amounts
 const LEDGER_CHANNEL_AMOUNT = 1_000_000_000_000;
 const PAYMENT_CHANNEL_AMOUNT = 1_000_000_000;
 
