@@ -264,9 +264,11 @@ export class Ponder {
         async ({ historicalSyncService, realtimeSyncService }) => {
           const blockNumbers = await realtimeSyncService.setup();
           await historicalSyncService.setup(blockNumbers);
-
           historicalSyncService.start();
-          realtimeSyncService.start();
+
+          if (!this.paymentService) {
+            realtimeSyncService.start();
+          }
         }
       )
     );
@@ -301,9 +303,11 @@ export class Ponder {
         async ({ historicalSyncService, realtimeSyncService }) => {
           const blockNumbers = await realtimeSyncService.setup();
           await historicalSyncService.setup(blockNumbers);
-
           historicalSyncService.start();
-          realtimeSyncService.start();
+
+          if (!this.paymentService) {
+            realtimeSyncService.start();
+          }
         }
       )
     );
@@ -393,6 +397,12 @@ export class Ponder {
         this.eventAggregatorService.handleHistoricalSyncComplete({
           chainId,
         });
+
+        // If payment service is setup, start the realtime sync service after historical sync service.
+        // This will avoid parallel requests to RPC endpoint
+        if (this.paymentService) {
+          realtimeSyncService.start();
+        }
       });
 
       realtimeSyncService.on("realtimeCheckpoint", ({ timestamp }) => {

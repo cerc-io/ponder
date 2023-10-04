@@ -4,6 +4,12 @@ import { mainnet } from "viem/chains";
 import type { ResolvedConfig } from "@/config/config.js";
 import type { PaymentService } from "@/payment/service.js";
 
+const PAID_RPC_METHODS = [
+  "eth_getLogs",
+  "eth_getBlockByNumber",
+  "eth_getBlockByHash",
+];
+
 export type Network = {
   name: string;
   chainId: number;
