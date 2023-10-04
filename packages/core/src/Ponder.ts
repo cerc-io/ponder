@@ -398,6 +398,8 @@ export class Ponder {
           chainId,
         });
 
+        // If payment service is setup, start the realtime sync service after historical sync service.
+        // This will avoid parallel requests to RPC endpoint
         if (this.paymentService) {
           realtimeSyncService.start();
         }
