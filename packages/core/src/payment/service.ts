@@ -5,9 +5,11 @@ import assert from "node:assert";
 import { ResolvedConfig } from "@/config/config";
 import { Common } from "@/Ponder";
 
-// TODO: Configure channel amounts
-const LEDGER_CHANNEL_AMOUNT = 1_000_000_000_000;
-const PAYMENT_CHANNEL_AMOUNT = 1_000_000_000;
+interface NetworkPayments
+  extends NonNullable<ResolvedConfig["networks"][0]["payments"]> {
+  ledgerChannelId?: string;
+  paymentChannelId?: string;
+}
 
 export class PaymentService {
   private config: NonNullable<ResolvedConfig["nitro"]>;
@@ -17,15 +19,22 @@ export class PaymentService {
   private ledgerChannelId?: string;
   private paymentChannelId?: string;
 
-  constructor({
-    config,
-    common,
-  }: {
-    config: NonNullable<ResolvedConfig["nitro"]>;
-    common: Common;
-  }) {
-    this.config = config;
+  private networkPaymentsMap: {
+    [key: string]: NetworkPayments;
+  } = {};
+
+  constructor({ config, common }: { config: ResolvedConfig; common: Common }) {
+    assert(config.nitro, "nitro config does not exist");
+    this.config = config.nitro!;
     this.common = common;
+
+    // Build networks map with Nitro node and payment config
+    this.networkPaymentsMap = config.networks
+      .filter((network) => Boolean(network.payments))
+      .reduce((acc: { [key: string]: NetworkPayments }, network) => {
+        acc[network.name] = network.payments!;
+        return acc;
+      }, {});
   }
 
   async init() {
@@ -55,18 +64,30 @@ export class PaymentService {
       msg: `Nitro node setup with address ${this.nitro.node.address}`,
     });
 
-    // Add nitro node accepting payments for RPC requests
-    const { address, multiAddr } = this.config.rpcNitroNode;
-    await this.nitro.addPeerByMultiaddr(address, multiAddr);
+    const addNitroPeerPromises = Object.values(this.networkPaymentsMap).map(
+      async (networkPayments) => {
+        // Add nitro node accepting payments for RPC requests
+        const { address, multiAddr } = networkPayments.nitro;
+        await this.nitro!.addPeerByMultiaddr(address, multiAddr);
 
-    this.common.logger.info({
-      service: "payment",
-      msg: `Added nitro node peer ${address}`,
-    });
+        this.common.logger.info({
+          service: "payment",
+          msg: `Added nitro node peer ${address}`,
+        });
+      }
+    );
+
+    await Promise.all(addNitroPeerPromises);
   }
 
-  async setupPaymentChannel() {
-    const { address } = this.config.rpcNitroNode;
+  async setupPaymentChannel(networkName: string) {
+    const networkPayments = this.networkPaymentsMap[networkName];
+
+    if (!networkPayments) {
+      return;
+    }
+
+    const { address } = networkPayments.nitro;
 
     await this.fetchPaymentChannelWithPeer(address);
 
@@ -78,7 +99,7 @@ export class PaymentService {
 
       this.ledgerChannelId = await this.nitro!.directFund(
         address,
-        LEDGER_CHANNEL_AMOUNT
+        Number(networkPayments.nitro.fundingAmounts.directFund)
       );
     }
 
@@ -90,7 +111,7 @@ export class PaymentService {
 
       this.paymentChannelId = await this.nitro!.virtualFund(
         address,
-        PAYMENT_CHANNEL_AMOUNT
+        Number(networkPayments.nitro.fundingAmounts.virtualFund)
       );
     }
 
@@ -100,13 +121,15 @@ export class PaymentService {
     });
   }
 
-  async createVoucher() {
+  async createVoucher(networkName: string) {
+    const networkPayments = this.networkPaymentsMap[networkName];
+
     assert(this.paymentChannelId, "Payment channel not created");
     const paymentChannel = new Destination(this.paymentChannelId);
 
     return this.nitro!.node.createVoucher(
       paymentChannel,
-      BigInt(this.config.payAmount)
+      BigInt(networkPayments.amount)
     );
   }
 

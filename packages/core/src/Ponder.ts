@@ -90,7 +90,7 @@ export class Ponder {
 
     if (config.nitro) {
       this.paymentService = new PaymentService({
-        config: config.nitro,
+        config,
         common,
       });
     }
@@ -230,8 +230,14 @@ export class Ponder {
       // Initialize payment service with Nitro node
       await this.paymentService.init();
 
-      // Setup payment channel nitro
-      await this.paymentService.setupPaymentChannel();
+      // Setup payment channel with Nitro nodes
+      const paymentChannelSetupPromises = this.networkSyncServices.map(
+        async ({ network }) => {
+          return this.paymentService!.setupPaymentChannel(network.name);
+        }
+      );
+
+      await Promise.all(paymentChannelSetupPromises);
     }
 
     return undefined;

@@ -49,7 +49,7 @@ export function buildNetwork({
 
           if (paymentService && PAID_RPC_METHODS.includes(method)) {
             // Make payment before RPC request
-            const voucher = await paymentService.createVoucher();
+            const voucher = await paymentService.createVoucher(network.name);
             url = `${url}&channelId=${voucher.channelId.string()}&amount=${voucher.amount?.toString()}&signature=${voucher.signature.toHexString()}`;
           }
 
