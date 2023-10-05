@@ -45,12 +45,12 @@ export function buildNetwork({
       // TODO: Implement a custom transport to change query params when making requests
       transport: custom({
         async request({ method, params }) {
-          let url = `${network.rpcUrl}?method=${method}`;
+          let url = network.rpcUrl;
 
           if (paymentService && PAID_RPC_METHODS.includes(method)) {
             // Make payment before RPC request
             const voucher = await paymentService.createVoucher(network.name);
-            url = `${url}&channelId=${voucher.channelId.string()}&amount=${voucher.amount?.toString()}&signature=${voucher.signature.toHexString()}`;
+            url = `${url}?channelId=${voucher.channelId.string()}&amount=${voucher.amount?.toString()}&signature=${voucher.signature.toHexString()}`;
           }
 
           const httpTransport = http(url);
