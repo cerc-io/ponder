@@ -106,7 +106,7 @@ export type ResolvedConfig = {
   nitro?: {
     privateKey: string;
     chainPrivateKey: string;
-    chainURL: string;
+    chainUrl: string;
     contractAddresses: { [key: string]: string };
     relayMultiAddr: string;
     store: string;

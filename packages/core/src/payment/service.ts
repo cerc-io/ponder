@@ -16,8 +16,6 @@ export class PaymentService {
   private common: Common;
 
   private nitro?: utils.Nitro;
-  private ledgerChannelId?: string;
-  private paymentChannelId?: string;
 
   private networkPaymentsMap: {
     [key: string]: NetworkPayments;
@@ -52,7 +50,7 @@ export class PaymentService {
 
     this.nitro = await utils.Nitro.setupNode(
       this.config.privateKey,
-      this.config.chainURL,
+      this.config.chainUrl,
       this.config.chainPrivateKey,
       this.config.contractAddresses,
       peer,
@@ -89,27 +87,27 @@ export class PaymentService {
 
     const { address } = networkPayments.nitro;
 
-    await this.fetchPaymentChannelWithPeer(address);
+    await this.fetchPaymentChannelWithPeer(networkPayments, address);
 
-    if (!this.ledgerChannelId) {
+    if (!networkPayments.ledgerChannelId) {
       this.common.logger.info({
         service: "payment",
         msg: `Creating ledger channel with nitro node ${address} ...`,
       });
 
-      this.ledgerChannelId = await this.nitro!.directFund(
+      networkPayments.ledgerChannelId = await this.nitro!.directFund(
         address,
         Number(networkPayments.nitro.fundingAmounts.directFund)
       );
     }
 
-    if (!this.paymentChannelId) {
+    if (!networkPayments.paymentChannelId) {
       this.common.logger.info({
         service: "payment",
         msg: `Creating payment channel with nitro node ${address} ...`,
       });
 
-      this.paymentChannelId = await this.nitro!.virtualFund(
+      networkPayments.paymentChannelId = await this.nitro!.virtualFund(
         address,
         Number(networkPayments.nitro.fundingAmounts.virtualFund)
       );
@@ -117,15 +115,15 @@ export class PaymentService {
 
     this.common.logger.info({
       service: "payment",
-      msg: `Using payment channel ${this.paymentChannelId}`,
+      msg: `Using payment channel ${networkPayments.paymentChannelId}`,
     });
   }
 
   async createVoucher(networkName: string) {
     const networkPayments = this.networkPaymentsMap[networkName];
 
-    assert(this.paymentChannelId, "Payment channel not created");
-    const paymentChannel = new Destination(this.paymentChannelId);
+    assert(networkPayments.paymentChannelId, "Payment channel not created");
+    const paymentChannel = new Destination(networkPayments.paymentChannelId);
 
     return this.nitro!.node.createVoucher(
       paymentChannel,
@@ -134,11 +132,20 @@ export class PaymentService {
   }
 
   async closeChannels() {
-    await this.nitro!.virtualDefund(this.paymentChannelId!);
-    await this.nitro!.directDefund(this.ledgerChannelId!);
+    const closeChannelPromises = Object.values(this.networkPaymentsMap).map(
+      async (networkPayments) => {
+        await this.nitro!.virtualDefund(networkPayments.paymentChannelId!);
+        await this.nitro!.directDefund(networkPayments.ledgerChannelId!);
+      }
+    );
+
+    await Promise.all(closeChannelPromises);
   }
 
-  private async fetchPaymentChannelWithPeer(nitroPeer: string): Promise<void> {
+  private async fetchPaymentChannelWithPeer(
+    networkPayments: NetworkPayments,
+    nitroPeer: string
+  ): Promise<void> {
     const ledgerChannels = await this.nitro!.node.getAllLedgerChannels();
 
     for await (const ledgerChannel of ledgerChannels) {
@@ -149,14 +156,14 @@ export class PaymentService {
         continue;
       }
 
-      this.ledgerChannelId = ledgerChannel.iD.string();
+      networkPayments.ledgerChannelId = ledgerChannel.iD.string();
       const paymentChannels = await this.nitro!.getPaymentChannelsByLedger(
-        this.ledgerChannelId
+        networkPayments.ledgerChannelId
       );
 
       for (const paymentChannel of paymentChannels) {
         if (paymentChannel.status === ChannelStatus.Open) {
-          this.paymentChannelId = paymentChannel.iD.string();
+          networkPayments.paymentChannelId = paymentChannel.iD.string();
           return;
         }
       }
