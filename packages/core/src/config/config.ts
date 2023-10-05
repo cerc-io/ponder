@@ -30,6 +30,22 @@ export type ResolvedConfig = {
     pollingInterval?: number;
     /** Maximum concurrency of RPC requests during the historical sync. Default: `10`. */
     maxRpcRequestConcurrency?: number;
+    /** Configuration of payments required for network requests */
+    payments?: {
+      nitro: {
+        address: string;
+        multiAddr: string;
+        /** Funding amounts for Nitro channels created with the node */
+        fundingAmounts: {
+          directFund: string;
+          virtualFund: string;
+        };
+      };
+      /** List of RPC methods which require payment */
+      paidRPCMethods: string[];
+      /** Amount to be paid for each network request */
+      amount: string;
+    };
   }[];
   /** List of contracts to fetch & handle events from. Contracts defined here will be present in `context.contracts`. */
   contracts?: {
@@ -90,15 +106,10 @@ export type ResolvedConfig = {
   nitro?: {
     privateKey: string;
     chainPrivateKey: string;
-    chainURL: string;
+    chainUrl: string;
     contractAddresses: { [key: string]: string };
     relayMultiAddr: string;
-    rpcNitroNode: {
-      address: string;
-      multiAddr: string;
-    };
     store: string;
-    payAmount: string;
   };
 };
 

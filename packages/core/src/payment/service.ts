@@ -5,27 +5,34 @@ import assert from "node:assert";
 import { ResolvedConfig } from "@/config/config";
 import { Common } from "@/Ponder";
 
-// TODO: Configure channel amounts
-const LEDGER_CHANNEL_AMOUNT = 1_000_000_000_000;
-const PAYMENT_CHANNEL_AMOUNT = 1_000_000_000;
+interface NetworkPayments
+  extends NonNullable<ResolvedConfig["networks"][0]["payments"]> {
+  ledgerChannelId?: string;
+  paymentChannelId?: string;
+}
 
 export class PaymentService {
   private config: NonNullable<ResolvedConfig["nitro"]>;
   private common: Common;
 
   private nitro?: utils.Nitro;
-  private ledgerChannelId?: string;
-  private paymentChannelId?: string;
 
-  constructor({
-    config,
-    common,
-  }: {
-    config: NonNullable<ResolvedConfig["nitro"]>;
-    common: Common;
-  }) {
-    this.config = config;
+  private networkPaymentsMap: {
+    [key: string]: NetworkPayments;
+  } = {};
+
+  constructor({ config, common }: { config: ResolvedConfig; common: Common }) {
+    assert(config.nitro, "nitro config does not exist");
+    this.config = config.nitro!;
     this.common = common;
+
+    // Build networks map with Nitro node and payment config
+    this.networkPaymentsMap = config.networks
+      .filter((network) => Boolean(network.payments))
+      .reduce((acc: { [key: string]: NetworkPayments }, network) => {
+        acc[network.name] = network.payments!;
+        return acc;
+      }, {});
   }
 
   async init() {
@@ -43,7 +50,7 @@ export class PaymentService {
 
     this.nitro = await utils.Nitro.setupNode(
       this.config.privateKey,
-      this.config.chainURL,
+      this.config.chainUrl,
       this.config.chainPrivateKey,
       this.config.contractAddresses,
       peer,
@@ -55,67 +62,90 @@ export class PaymentService {
       msg: `Nitro node setup with address ${this.nitro.node.address}`,
     });
 
-    // Add nitro node accepting payments for RPC requests
-    const { address, multiAddr } = this.config.rpcNitroNode;
-    await this.nitro.addPeerByMultiaddr(address, multiAddr);
+    const addNitroPeerPromises = Object.values(this.networkPaymentsMap).map(
+      async (networkPayments) => {
+        // Add nitro node accepting payments for RPC requests
+        const { address, multiAddr } = networkPayments.nitro;
+        await this.nitro!.addPeerByMultiaddr(address, multiAddr);
 
-    this.common.logger.info({
-      service: "payment",
-      msg: `Added nitro node peer ${address}`,
-    });
+        this.common.logger.info({
+          service: "payment",
+          msg: `Added nitro node peer ${address}`,
+        });
+      }
+    );
+
+    await Promise.all(addNitroPeerPromises);
   }
 
-  async setupPaymentChannel() {
-    const { address } = this.config.rpcNitroNode;
+  async setupPaymentChannel(networkName: string) {
+    const networkPayments = this.networkPaymentsMap[networkName];
 
-    await this.fetchPaymentChannelWithPeer(address);
+    if (!networkPayments) {
+      return;
+    }
 
-    if (!this.ledgerChannelId) {
+    const { address } = networkPayments.nitro;
+
+    await this.fetchPaymentChannelWithPeer(networkPayments, address);
+
+    if (!networkPayments.ledgerChannelId) {
       this.common.logger.info({
         service: "payment",
         msg: `Creating ledger channel with nitro node ${address} ...`,
       });
 
-      this.ledgerChannelId = await this.nitro!.directFund(
+      networkPayments.ledgerChannelId = await this.nitro!.directFund(
         address,
-        LEDGER_CHANNEL_AMOUNT
+        Number(networkPayments.nitro.fundingAmounts.directFund)
       );
     }
 
-    if (!this.paymentChannelId) {
+    if (!networkPayments.paymentChannelId) {
       this.common.logger.info({
         service: "payment",
         msg: `Creating payment channel with nitro node ${address} ...`,
       });
 
-      this.paymentChannelId = await this.nitro!.virtualFund(
+      networkPayments.paymentChannelId = await this.nitro!.virtualFund(
         address,
-        PAYMENT_CHANNEL_AMOUNT
+        Number(networkPayments.nitro.fundingAmounts.virtualFund)
       );
     }
 
     this.common.logger.info({
       service: "payment",
-      msg: `Using payment channel ${this.paymentChannelId}`,
+      msg: `Using payment channel ${networkPayments.paymentChannelId}`,
     });
   }
 
-  async createVoucher() {
-    assert(this.paymentChannelId, "Payment channel not created");
-    const paymentChannel = new Destination(this.paymentChannelId);
+  async createVoucher(networkName: string) {
+    const networkPayments = this.networkPaymentsMap[networkName];
+
+    assert(networkPayments.paymentChannelId, "Payment channel not created");
+    const paymentChannel = new Destination(networkPayments.paymentChannelId);
 
     return this.nitro!.node.createVoucher(
       paymentChannel,
-      BigInt(this.config.payAmount)
+      BigInt(networkPayments.amount)
     );
   }
 
   async closeChannels() {
-    await this.nitro!.virtualDefund(this.paymentChannelId!);
-    await this.nitro!.directDefund(this.ledgerChannelId!);
+    const closeChannelPromises = Object.values(this.networkPaymentsMap).map(
+      async (networkPayments) => {
+        await this.nitro!.virtualDefund(networkPayments.paymentChannelId!);
+        await this.nitro!.directDefund(networkPayments.ledgerChannelId!);
+      }
+    );
+
+    await Promise.all(closeChannelPromises);
   }
 
-  private async fetchPaymentChannelWithPeer(nitroPeer: string): Promise<void> {
+  private async fetchPaymentChannelWithPeer(
+    networkPayments: NetworkPayments,
+    nitroPeer: string
+  ): Promise<void> {
     const ledgerChannels = await this.nitro!.node.getAllLedgerChannels();
 
     for await (const ledgerChannel of ledgerChannels) {
@@ -126,14 +156,14 @@ export class PaymentService {
         continue;
       }
 
-      this.ledgerChannelId = ledgerChannel.iD.string();
+      networkPayments.ledgerChannelId = ledgerChannel.iD.string();
       const paymentChannels = await this.nitro!.getPaymentChannelsByLedger(
-        this.ledgerChannelId
+        networkPayments.ledgerChannelId
       );
 
       for (const paymentChannel of paymentChannels) {
         if (paymentChannel.status === ChannelStatus.Open) {
-          this.paymentChannelId = paymentChannel.iD.string();
+          networkPayments.paymentChannelId = paymentChannel.iD.string();
           return;
         }
       }
