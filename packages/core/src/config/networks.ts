@@ -40,7 +40,9 @@ export function buildNetwork({
       id: network.chainId,
       network: network.name,
     };
+
     let paidRPCProvider;
+
     if (paymentService) {
       paidRPCProvider = new PaidRPCProvider(
         network as Network,
@@ -49,6 +51,7 @@ export function buildNetwork({
         PAID_RPC_METHODS
       );
     }
+
     client = createPublicClient({
       chain,
       transport: paidRPCProvider

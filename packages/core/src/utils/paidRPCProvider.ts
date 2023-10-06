@@ -29,7 +29,6 @@ export class PaidRPCProvider {
     params: unknown | object;
   }): Promise<any> {
     let url = this.network.rpcUrl;
-    // TODO: remove paymentService check
     if (this.paidRPCMethods.includes(method)) {
       // Make payment before RPC request
       const voucher = await this.paymentService.createVoucher(
