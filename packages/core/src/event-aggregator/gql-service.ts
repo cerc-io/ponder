@@ -1,10 +1,10 @@
-import {
-  type ApolloClient,
-  type DocumentNode,
-  type NormalizedCacheObject,
-  type ObservableSubscription,
-  gql,
+import type {
+  ApolloClient,
+  DocumentNode,
+  NormalizedCacheObject,
+  ObservableSubscription,
 } from "@apollo/client";
+import apolloClientPkg from "@apollo/client";
 import type { Address } from "viem";
 import { type Hex } from "viem";
 
@@ -16,7 +16,9 @@ import type { Block } from "@/types/block";
 import type { Log } from "@/types/log";
 import type { Transaction } from "@/types/transaction";
 
-import { EventAggregatorService } from "./service";
+import { EventAggregatorService } from "./service.js";
+
+const { gql } = apolloClientPkg;
 
 type Cursor = {
   timestamp: number;
@@ -208,8 +210,6 @@ export class GqlEventAggregatorService extends EventAggregatorService {
       });
     }
 
-    const { gql } = await import("@apollo/client/core");
-
     const {
       data: { getLogEvents },
     } = await this.gqlClient.query({
@@ -385,8 +385,6 @@ export class GqlEventAggregatorService extends EventAggregatorService {
   }
 
   private async fetchHistoricalSync() {
-    const { gql } = await import("@apollo/client/core");
-
     const queryPromises = Object.keys(this.networkCheckpoints).map(
       async (chainId) => {
         const {

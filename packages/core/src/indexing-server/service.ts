@@ -5,12 +5,12 @@ import { PubSub } from "graphql-subscriptions";
 import { useServer } from "graphql-ws/lib/use/ws";
 import { WebSocketServer } from "ws";
 
-import type { Network } from "@/config/networks";
-import type { EventStore } from "@/event-store/store";
-import type { Common } from "@/Ponder";
-import { Server } from "@/utils/server";
+import type { Network } from "@/config/networks.js";
+import type { EventStore } from "@/event-store/store.js";
+import type { Common } from "@/Ponder.js";
+import { Server } from "@/utils/server.js";
 
-import type { NetworkCheckpoints } from "./resolvers";
+import type { NetworkCheckpoints } from "./resolvers.js";
 import {
   FINALITY_CHECKPOINT,
   getResolvers,
@@ -18,8 +18,8 @@ import {
   REALTIME_CHECKPOINT,
   SHALLOW_REORG,
   SYNC_COMPLETE,
-} from "./resolvers";
-import { indexingSchema } from "./schema";
+} from "./resolvers.js";
+import { indexingSchema } from "./schema.js";
 
 export class IndexingServerService {
   private common: Common;

@@ -6,7 +6,7 @@ import type { Network } from "@/config/networks";
 import type { EventStore } from "@/event-store/store";
 import type { Common } from "@/Ponder";
 
-import { EventAggregatorService } from "./service";
+import { EventAggregatorService } from "./service.js";
 
 export class InternalEventAggregatorService extends EventAggregatorService {
   private eventStore: EventStore;

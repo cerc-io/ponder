@@ -1,8 +1,10 @@
-import { ApolloClient, HttpLink, InMemoryCache, split } from "@apollo/client";
-import { GraphQLWsLink } from "@apollo/client/link/subscriptions";
-import { getMainDefinition } from "@apollo/client/utilities";
+import apolloClientPkg from "@apollo/client";
+import { GraphQLWsLink } from "@apollo/client/link/subscriptions/index.js";
+import { getMainDefinition } from "@apollo/client/utilities/index.js";
 import { createClient } from "graphql-ws";
 import WebSocket from "ws";
+
+const { ApolloClient, HttpLink, InMemoryCache, split } = apolloClientPkg;
 
 /**
  * Method to create a client for GQL queries and subscriptions

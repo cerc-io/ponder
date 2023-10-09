@@ -1,9 +1,12 @@
-import { ChannelStatus, Destination, utils } from "@cerc-io/nitro-node";
+import type { utils as utilsInterface } from "@cerc-io/nitro-node";
+import nitroNodePkg from "@cerc-io/nitro-node";
 import { hex2Bytes } from "@cerc-io/nitro-util";
 import assert from "node:assert";
 
 import type { ResolvedConfig } from "@/config/config";
 import type { Common } from "@/Ponder";
+
+const { ChannelStatus, Destination, utils } = nitroNodePkg;
 
 interface NetworkPayments
   extends NonNullable<ResolvedConfig["networks"][0]["payments"]> {
@@ -15,7 +18,7 @@ export class PaymentService {
   private config: NonNullable<ResolvedConfig["nitro"]>;
   private common: Common;
 
-  private nitro?: utils.Nitro;
+  private nitro?: utilsInterface.Nitro;
 
   private networkPaymentsMap: {
     [key: string]: NetworkPayments;

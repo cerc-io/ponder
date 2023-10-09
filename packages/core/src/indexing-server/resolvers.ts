@@ -1,16 +1,19 @@
 import type { IFieldResolver, IResolvers } from "@graphql-tools/utils";
-import ApolloBigInt from "apollo-type-bigint";
 import type { PubSub } from "graphql-subscriptions";
+import { createRequire } from "node:module";
 
-import type { EventStore } from "@/event-store/store";
-import { blobToBigInt } from "@/utils/decode";
-import { intToBlob } from "@/utils/encode";
+import type { EventStore } from "@/event-store/store.js";
+import { blobToBigInt } from "@/utils/decode.js";
+import { intToBlob } from "@/utils/encode.js";
 
 export const HISTORICAL_CHECKPOINT = "historicalCheckpoint";
 export const SYNC_COMPLETE = "syncComplete";
 export const REALTIME_CHECKPOINT = "realtimeCheckpoint";
 export const FINALITY_CHECKPOINT = "finalityCheckpoint";
 export const SHALLOW_REORG = "shallowReorg";
+
+const require = createRequire(import.meta.url);
+const { default: ApolloBigInt } = require("apollo-type-bigint");
 
 const PAGE_SIZE = 10_000;
 
