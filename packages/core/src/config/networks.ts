@@ -3,7 +3,7 @@ import { mainnet } from "viem/chains";
 
 import type { ResolvedConfig } from "@/config/config";
 import { PaymentService } from "@/payment/service";
-import { PaidRPCProvider } from "@/utils/paidRPCProvider";
+import { PaidRPCProvider } from "@/utils/paid-rpc-provider";
 
 const PAID_RPC_METHODS = [
   "eth_getLogs",
