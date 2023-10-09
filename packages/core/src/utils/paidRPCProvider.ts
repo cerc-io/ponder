@@ -1,4 +1,4 @@
-import { Chain, HttpTransportConfig } from "viem";
+import { Chain, HttpRequestError, RpcRequestError, TimeoutError } from "viem";
 import { stringify } from "viem";
 
 import { Network } from "@/config/networks";
@@ -22,49 +22,6 @@ export class PaidRPCProvider {
     this.paidRPCMethods = paidRPCMethods;
   }
 
-  async paidRPCRequest(
-    chain: Chain,
-    { method, params }: { method: string; params: unknown | object },
-    url?: string,
-    config: HttpTransportConfig = {}
-  ) {
-    const url_ = url || chain?.rpcUrls.default.http[0];
-    const body = { method, params };
-    const { fetchOptions = {} } = config;
-    let id = 0;
-    try {
-      const response = await fetch(url_, {
-        ...fetchOptions,
-        body: Array.isArray(body)
-          ? stringify(
-              body.map((body) => ({
-                jsonrpc: "2.0",
-                id: id++,
-                ...body,
-              }))
-            )
-          : stringify({ jsonrpc: "2.0", id: id++, ...body }),
-        headers: {
-          ...fetchOptions.headers,
-          "Content-Type": "application/json",
-        },
-        method: fetchOptions.method || "POST",
-      });
-
-      let data;
-      if (
-        response.headers.get("Content-Type")?.startsWith("application/json")
-      ) {
-        data = await response.json();
-      } else {
-        data = await response.text();
-      }
-      return data;
-    } catch (error) {
-      console.log(error);
-    }
-  }
-
   async request({
     method,
     params,
@@ -82,10 +39,71 @@ export class PaidRPCProvider {
     }
 
     const chain = this.chain;
+    const body = { method, params };
+    const url_ = url || chain?.rpcUrls.default.http[0];
 
-    const fn = async () =>
-      await this.paidRPCRequest(chain, { method, params }, url);
-    const { result } = await fn();
+    const { error, result } = await this.rpcRequest(body, url_);
+
+    if (error)
+      throw new RpcRequestError({
+        body,
+        error,
+        url: url_,
+      });
     return result;
+  }
+
+  private async rpcRequest(
+    body: { method: string; params: unknown | object },
+    url: string
+  ) {
+    let id = 0;
+
+    try {
+      const response = await fetch(url, {
+        body: Array.isArray(body)
+          ? stringify(
+              body.map((body) => ({
+                jsonrpc: "2.0",
+                id: id++,
+                ...body,
+              }))
+            )
+          : stringify({ jsonrpc: "2.0", id: id++, ...body }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+
+      let data;
+      if (
+        response.headers.get("Content-Type")?.startsWith("application/json")
+      ) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+
+      if (!response.ok) {
+        throw new HttpRequestError({
+          body,
+          details: stringify(data.error) || response.statusText,
+          headers: response.headers,
+          status: response.status,
+          url,
+        });
+      }
+
+      return data;
+    } catch (err) {
+      if (err instanceof HttpRequestError) throw err;
+      if (err instanceof TimeoutError) throw err;
+      throw new HttpRequestError({
+        body,
+        details: (err as Error).message,
+        url,
+      });
+    }
   }
 }
