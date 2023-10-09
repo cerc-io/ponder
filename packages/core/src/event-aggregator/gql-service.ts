@@ -5,7 +5,8 @@ import {
   type ObservableSubscription,
   gql,
 } from "@apollo/client";
-import { type Hex, Address } from "viem";
+import type { Address } from "viem";
+import { type Hex } from "viem";
 
 import type { LogFilterName } from "@/build/handlers";
 import type { LogEventMetadata, LogFilter } from "@/config/logFilters";

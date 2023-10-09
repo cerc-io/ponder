@@ -1,4 +1,5 @@
-import { fromHex, Hex } from "viem";
+import type { Hex } from "viem";
+import { fromHex } from "viem";
 
 import { ponder } from "@/generated";
 

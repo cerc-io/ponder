@@ -1,8 +1,8 @@
 import type { IFieldResolver, IResolvers } from "@graphql-tools/utils";
 import ApolloBigInt from "apollo-type-bigint";
-import { PubSub } from "graphql-subscriptions";
+import type { PubSub } from "graphql-subscriptions";
 
-import { EventStore } from "@/event-store/store";
+import type { EventStore } from "@/event-store/store";
 import { blobToBigInt } from "@/utils/decode";
 import { intToBlob } from "@/utils/encode";
 

@@ -1,20 +1,20 @@
 import { makeExecutableSchema } from "@graphql-tools/schema";
-import express from "express";
-import { graphqlHTTP } from "express-graphql";
+import type express from "express";
+import { createHandler } from "graphql-http/lib/use/express";
 import { PubSub } from "graphql-subscriptions";
 import { useServer } from "graphql-ws/lib/use/ws";
-import { Server as WebSocketServer } from "ws";
+import { WebSocketServer } from "ws";
 
-import { Network } from "@/config/networks";
-import { EventStore } from "@/event-store/store";
+import type { Network } from "@/config/networks";
+import type { EventStore } from "@/event-store/store";
 import type { Common } from "@/Ponder";
 import { Server } from "@/utils/server";
 
+import type { NetworkCheckpoints } from "./resolvers";
 import {
   FINALITY_CHECKPOINT,
   getResolvers,
   HISTORICAL_CHECKPOINT,
-  NetworkCheckpoints,
   REALTIME_CHECKPOINT,
   SHALLOW_REORG,
   SYNC_COMPLETE,
@@ -84,9 +84,8 @@ export class IndexingServerService {
       }),
     });
 
-    const graphqlMiddleware = graphqlHTTP({
+    const graphqlMiddleware = createHandler({
       schema,
-      graphiql: true,
     });
 
     this.server.app?.use("/graphql", graphqlMiddleware);

@@ -7,7 +7,7 @@ import { encodeLogFilterKey } from "@/config/logFilterKey.js";
 import type { LogFilter } from "@/config/logFilters.js";
 import type { Network } from "@/config/networks.js";
 
-import { InternalEventAggregatorService } from "./internal-service.js;
+import { InternalEventAggregatorService } from "./internal-service";
 
 beforeEach((context) => setupEventStore(context));
 

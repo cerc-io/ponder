@@ -2,8 +2,8 @@ import { ChannelStatus, Destination, utils } from "@cerc-io/nitro-node";
 import { hex2Bytes } from "@cerc-io/nitro-util";
 import assert from "node:assert";
 
-import { ResolvedConfig } from "@/config/config";
-import { Common } from "@/Ponder";
+import type { ResolvedConfig } from "@/config/config";
+import type { Common } from "@/Ponder";
 
 interface NetworkPayments
   extends NonNullable<ResolvedConfig["networks"][0]["payments"]> {

@@ -351,6 +351,9 @@ importers:
       graphql:
         specifier: ^15.3.0
         version: 15.8.0(patch_hash=qb2u6q36ugvr6swjr2i3rg76ty)
+      graphql-http:
+        specifier: ^1.22.0
+        version: 1.22.0(graphql@15.8.0)
       graphql-subscriptions:
         specifier: ^2.0.0
         version: 2.0.0(graphql@15.8.0)
@@ -9213,6 +9216,15 @@ packages:
 
   /graphemer@1.4.0:
     resolution: {integrity: sha512-EtKwoO6kxCL9WO5xipiHTZlSzBm7WLT627TqC/uVRd0HKmq8NXyebnNYxDoBi7wt8eTWrUrKXCOVaFq9x1kgag==}
+
+  /graphql-http@1.22.0(graphql@15.8.0):
+    resolution: {integrity: sha512-9RBUlGJWBFqz9LwfpmAbjJL/8j/HCNkZwPBU5+Bfmwez+1Ay43DocMNQYpIWsWqH0Ftv6PTNAh2aRnnMCBJgLw==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      graphql: '>=0.11 <=16'
+    dependencies:
+      graphql: 15.8.0(patch_hash=qb2u6q36ugvr6swjr2i3rg76ty)
+    dev: false
 
   /graphql-import-node@0.0.5(graphql@16.8.1):
     resolution: {integrity: sha512-OXbou9fqh9/Lm7vwXT0XoRN9J5+WCYKnbiTalgFDvkQERITRmcfncZs6aVABedd5B85yQU5EULS4a5pnbpuI0Q==}
