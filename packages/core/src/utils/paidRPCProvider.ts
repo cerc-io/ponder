@@ -1,4 +1,5 @@
-import { Chain, http } from "viem";
+import { Chain, HttpTransportConfig } from "viem";
+import { stringify } from "viem";
 
 import { Network } from "@/config/networks";
 import { PaymentService } from "@/payment/service";
@@ -21,6 +22,49 @@ export class PaidRPCProvider {
     this.paidRPCMethods = paidRPCMethods;
   }
 
+  async paidRPCRequest(
+    chain: Chain,
+    { method, params }: { method: string; params: unknown | object },
+    url?: string,
+    config: HttpTransportConfig = {}
+  ) {
+    const url_ = url || chain?.rpcUrls.default.http[0];
+    const body = { method, params };
+    const { fetchOptions = {} } = config;
+    let id = 0;
+    try {
+      const response = await fetch(url_, {
+        ...fetchOptions,
+        body: Array.isArray(body)
+          ? stringify(
+              body.map((body) => ({
+                jsonrpc: "2.0",
+                id: id++,
+                ...body,
+              }))
+            )
+          : stringify({ jsonrpc: "2.0", id: id++, ...body }),
+        headers: {
+          ...fetchOptions.headers,
+          "Content-Type": "application/json",
+        },
+        method: fetchOptions.method || "POST",
+      });
+
+      let data;
+      if (
+        response.headers.get("Content-Type")?.startsWith("application/json")
+      ) {
+        data = await response.json();
+      } else {
+        data = await response.text();
+      }
+      return data;
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   async request({
     method,
     params,
@@ -37,10 +81,11 @@ export class PaidRPCProvider {
       url = `${url}?channelId=${voucher.channelId.string()}&amount=${voucher.amount?.toString()}&signature=${voucher.signature.toHexString()}`;
     }
 
-    const httpTransport = http(url);
     const chain = this.chain;
-    const { request } = httpTransport({ chain });
 
-    return request({ method, params });
+    const fn = async () =>
+      await this.paidRPCRequest(chain, { method, params }, url);
+    const { result } = await fn();
+    return result;
   }
 }
