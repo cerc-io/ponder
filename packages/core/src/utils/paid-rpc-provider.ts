@@ -5,6 +5,7 @@ import { Network } from "@/config/networks";
 import { PaymentService } from "@/payment/service";
 
 let id = 0;
+
 export class PaidRPCProvider {
   network: Network;
   paymentService: PaymentService;
@@ -34,7 +35,7 @@ export class PaidRPCProvider {
     let url = this.network.rpcUrl || chain?.rpcUrls.default.http[0];
 
     if (this.paidRPCMethods.includes(method)) {
-      // Make payment before RPC request
+      // Create payment voucher before RPC request
       const voucher = await this.paymentService.createVoucher(
         this.network.name
       );
@@ -51,6 +52,7 @@ export class PaidRPCProvider {
         error,
         url,
       });
+
     return result;
   }
 
