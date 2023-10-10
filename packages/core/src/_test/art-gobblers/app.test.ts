@@ -6,7 +6,7 @@ import { type TestContext, afterEach, beforeEach, expect, test } from "vitest";
 import { setupEventStore, setupUserStore } from "@/_test/setup.js";
 import { testNetworkConfig } from "@/_test/utils.js";
 import { buildConfig } from "@/config/config.js";
-import { buildOptions } from "@/config/options.js";
+import { AppMode, buildOptions } from "@/config/options.js";
 import { Ponder } from "@/Ponder.js";
 
 beforeEach((context) => setupEventStore(context));
@@ -23,6 +23,7 @@ const setup = async ({ context }: { context: TestContext }) => {
     cliOptions: {
       rootDir: "./src/_test/art-gobblers/app",
       configFile: "ponder.config.ts",
+      mode: AppMode.Standalone,
     },
   });
   const testOptions = {

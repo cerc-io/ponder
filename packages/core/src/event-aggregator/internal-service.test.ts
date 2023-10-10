@@ -7,7 +7,7 @@ import { encodeLogFilterKey } from "@/config/logFilterKey.js";
 import type { LogFilter } from "@/config/logFilters.js";
 import type { Network } from "@/config/networks.js";
 
-import { EventAggregatorService } from "./service.js";
+import { InternalEventAggregatorService } from "./internal-service";
 
 beforeEach((context) => setupEventStore(context));
 
@@ -61,7 +61,7 @@ const logFilters: LogFilter[] = [
 test("handleNewHistoricalCheckpoint emits new checkpoint", async (context) => {
   const { common, eventStore } = context;
 
-  const service = new EventAggregatorService({
+  const service = new InternalEventAggregatorService({
     common,
     eventStore,
     logFilters,
@@ -84,7 +84,7 @@ test("handleNewHistoricalCheckpoint emits new checkpoint", async (context) => {
 test("handleNewHistoricalCheckpoint does not emit new checkpoint if not best", async (context) => {
   const { common, eventStore } = context;
 
-  const service = new EventAggregatorService({
+  const service = new InternalEventAggregatorService({
     common,
     eventStore,
     logFilters,
@@ -114,7 +114,7 @@ test("handleNewHistoricalCheckpoint does not emit new checkpoint if not best", a
 test("handleHistoricalSyncComplete sets historicalSyncCompletedAt if final historical sync is complete", async (context) => {
   const { common, eventStore } = context;
 
-  const service = new EventAggregatorService({
+  const service = new InternalEventAggregatorService({
     common,
     eventStore,
     logFilters,
@@ -142,7 +142,7 @@ test("handleHistoricalSyncComplete sets historicalSyncCompletedAt if final histo
 test("handleNewRealtimeCheckpoint does not emit new checkpoint if historical sync is not complete", async (context) => {
   const { common, eventStore } = context;
 
-  const service = new EventAggregatorService({
+  const service = new InternalEventAggregatorService({
     common,
     eventStore,
     logFilters,
@@ -171,7 +171,7 @@ test("handleNewRealtimeCheckpoint does not emit new checkpoint if historical syn
 test("handleNewRealtimeCheckpoint emits new checkpoint if historical sync is complete", async (context) => {
   const { common, eventStore } = context;
 
-  const service = new EventAggregatorService({
+  const service = new InternalEventAggregatorService({
     common,
     eventStore,
     logFilters,
@@ -209,7 +209,7 @@ test("handleNewRealtimeCheckpoint emits new checkpoint if historical sync is com
 test("handleNewFinalityCheckpoint emits newFinalityCheckpoint", async (context) => {
   const { common, eventStore } = context;
 
-  const service = new EventAggregatorService({
+  const service = new InternalEventAggregatorService({
     common,
     eventStore,
     logFilters,
@@ -235,7 +235,7 @@ test("handleNewFinalityCheckpoint emits newFinalityCheckpoint", async (context) 
 test("handleNewFinalityCheckpoint does not emit newFinalityCheckpoint if subsequent event is earlier", async (context) => {
   const { common, eventStore } = context;
 
-  const service = new EventAggregatorService({
+  const service = new InternalEventAggregatorService({
     common,
     eventStore,
     logFilters,
@@ -265,7 +265,7 @@ test("handleNewFinalityCheckpoint does not emit newFinalityCheckpoint if subsequ
 test("handleNewFinalityCheckpoint emits newFinalityCheckpoint if subsequent event is later", async (context) => {
   const { common, eventStore } = context;
 
-  const service = new EventAggregatorService({
+  const service = new InternalEventAggregatorService({
     common,
     eventStore,
     logFilters,

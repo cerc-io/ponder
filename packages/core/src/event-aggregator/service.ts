@@ -4,7 +4,6 @@ import { type Hex, decodeEventLog } from "viem";
 import type { LogFilterName } from "@/build/handlers.js";
 import type { LogEventMetadata, LogFilter } from "@/config/logFilters.js";
 import type { Network } from "@/config/networks.js";
-import type { EventStore } from "@/event-store/store.js";
 import type { Common } from "@/Ponder.js";
 import type { Block } from "@/types/block.js";
 import type { Log } from "@/types/log.js";
@@ -20,7 +19,7 @@ export type LogEvent = {
   transaction: Transaction;
 };
 
-type EventAggregatorEvents = {
+export type EventAggregatorEvents = {
   /**
    * Emitted when a new event checkpoint is reached. This is the minimum timestamp
    * at which events are available across all registered networks.
@@ -37,12 +36,11 @@ type EventAggregatorEvents = {
   reorg: { commonAncestorTimestamp: number };
 };
 
-type EventAggregatorMetrics = {};
+export type EventAggregatorMetrics = {};
 
-export class EventAggregatorService extends Emittery<EventAggregatorEvents> {
-  private common: Common;
-  private eventStore: EventStore;
-  private logFilters: LogFilter[];
+export abstract class EventAggregatorService extends Emittery<EventAggregatorEvents> {
+  protected common;
+  protected logFilters: LogFilter[];
   private networks: Network[];
 
   // Minimum timestamp at which events are available (across all networks).
@@ -54,7 +52,7 @@ export class EventAggregatorService extends Emittery<EventAggregatorEvents> {
   historicalSyncCompletedAt?: number;
 
   // Per-network event timestamp checkpoints.
-  private networkCheckpoints: Record<
+  protected networkCheckpoints: Record<
     number,
     {
       isHistoricalSyncComplete: boolean;
@@ -68,19 +66,16 @@ export class EventAggregatorService extends Emittery<EventAggregatorEvents> {
 
   constructor({
     common,
-    eventStore,
     networks,
     logFilters,
   }: {
     common: Common;
-    eventStore: EventStore;
     networks: Network[];
     logFilters: LogFilter[];
   }) {
     super();
 
     this.common = common;
-    this.eventStore = eventStore;
     this.logFilters = logFilters;
     this.networks = networks;
     this.metrics = {};
@@ -106,7 +101,7 @@ export class EventAggregatorService extends Emittery<EventAggregatorEvents> {
    * @param options.includeLogFilterEvents Map of log filter name -> selector -> ABI event item for which to include full event objects.
    * @returns A promise resolving to an array of log events.
    */
-  async *getEvents({
+  abstract getEvents({
     fromTimestamp,
     toTimestamp,
     includeLogFilterEvents,
@@ -120,72 +115,22 @@ export class EventAggregatorService extends Emittery<EventAggregatorEvents> {
           }
         | undefined;
     };
-  }) {
-    const iterator = this.eventStore.getLogEvents({
-      fromTimestamp,
-      toTimestamp,
-      filters: this.logFilters.map((logFilter) => ({
-        name: logFilter.name,
-        chainId: logFilter.filter.chainId,
-        address: logFilter.filter.address,
-        topics: logFilter.filter.topics,
-        fromBlock: logFilter.filter.startBlock,
-        toBlock: logFilter.filter.endBlock,
-        includeEventSelectors: Object.keys(
-          includeLogFilterEvents[logFilter.name]?.bySelector ?? {}
-        ) as Hex[],
-      })),
-    });
+  }): AsyncGenerator<{
+    events: LogEvent[];
+    metadata: {
+      pageEndsAtTimestamp: number;
+      counts: {
+        logFilterName: string;
+        selector: Hex;
+        count: number;
+      }[];
+    };
+  }>;
 
-    for await (const page of iterator) {
-      const { events, metadata } = page;
+  subscribeToSyncEvents?(): Promise<void>;
 
-      const decodedEvents = events.reduce<LogEvent[]>((acc, event) => {
-        const selector = event.log.topics[0];
-        if (!selector) {
-          throw new Error(
-            `Received an event log with no selector: ${event.log}`
-          );
-        }
-
-        const logEventMetadata =
-          includeLogFilterEvents[event.logFilterName]?.bySelector[selector];
-        if (!logEventMetadata) {
-          throw new Error(
-            `Metadata for event ${event.logFilterName}:${selector} not found in includeLogFilterEvents`
-          );
-        }
-        const { abiItem, safeName } = logEventMetadata;
-
-        try {
-          const decodedLog = decodeEventLog({
-            abi: [abiItem],
-            data: event.log.data,
-            topics: event.log.topics,
-          });
-
-          acc.push({
-            logFilterName: event.logFilterName,
-            eventName: safeName,
-            params: decodedLog.args || {},
-            log: event.log,
-            block: event.block,
-            transaction: event.transaction,
-          });
-        } catch (err) {
-          // TODO: emit a warning here that a log was not decoded.
-          this.common.logger.error({
-            service: "app",
-            msg: `Unable to decode log (skipping it): ${event.log}`,
-            error: err as Error,
-          });
-        }
-
-        return acc;
-      }, []);
-
-      yield { events: decodedEvents, metadata };
-    }
+  kill() {
+    this.clearListeners();
   }
 
   handleNewHistoricalCheckpoint = ({
@@ -262,6 +207,64 @@ export class EventAggregatorService extends Emittery<EventAggregatorEvents> {
     commonAncestorTimestamp: number;
   }) => {
     this.emit("reorg", { commonAncestorTimestamp });
+  };
+
+  protected decodeEvents = (
+    events: {
+      logFilterName: string;
+      log: Log;
+      block: Block;
+      transaction: Transaction;
+    }[],
+    includeLogFilterEvents: {
+      [logFilterName: LogFilterName]:
+        | {
+            bySelector: { [selector: Hex]: LogEventMetadata };
+          }
+        | undefined;
+    }
+  ) => {
+    return events.reduce<LogEvent[]>((acc, event) => {
+      const selector = event.log.topics[0];
+      if (!selector) {
+        throw new Error(`Received an event log with no selector: ${event.log}`);
+      }
+
+      const logEventMetadata =
+        includeLogFilterEvents[event.logFilterName]?.bySelector[selector];
+      if (!logEventMetadata) {
+        throw new Error(
+          `Metadata for event ${event.logFilterName}:${selector} not found in includeLogFilterEvents`
+        );
+      }
+      const { abiItem, safeName } = logEventMetadata;
+
+      try {
+        const decodedLog = decodeEventLog({
+          abi: [abiItem],
+          data: event.log.data,
+          topics: event.log.topics,
+        });
+
+        acc.push({
+          logFilterName: event.logFilterName,
+          eventName: safeName,
+          params: decodedLog.args || {},
+          log: event.log,
+          block: event.block,
+          transaction: event.transaction,
+        });
+      } catch (err) {
+        // TODO: emit a warning here that a log was not decoded.
+        this.common.logger.error({
+          service: "app",
+          msg: `Unable to decode log (skipping it): ${event.log}`,
+          error: err as Error,
+        });
+      }
+
+      return acc;
+    }, []);
   };
 
   private recalculateCheckpoint = () => {

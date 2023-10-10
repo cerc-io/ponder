@@ -1,4 +1,5 @@
 import Sqlite from "better-sqlite3";
+import assert from "node:assert";
 import path from "node:path";
 import pg from "pg";
 
@@ -10,7 +11,8 @@ import { ensureDirExists } from "@/utils/exists.js";
 
 export interface SqliteDb {
   kind: "sqlite";
-  db: Sqlite.Database;
+  eventStoreDb: Sqlite.Database;
+  userStoreDb: Sqlite.Database;
 }
 
 export interface PostgresDb {
@@ -94,7 +96,7 @@ export const buildDatabase = ({
 }): Database => {
   let resolvedDatabaseConfig: NonNullable<ResolvedConfig["database"]>;
 
-  const defaultSqliteFilename = path.join(options.ponderDir, "cache.db");
+  const defaultSqliteDirectory = path.join(options.ponderDir, "cache");
 
   if (config.database) {
     if (config.database.kind === "postgres") {
@@ -105,7 +107,7 @@ export const buildDatabase = ({
     } else {
       resolvedDatabaseConfig = {
         kind: "sqlite",
-        filename: config.database.filename ?? defaultSqliteFilename,
+        directory: config.database.directory ?? defaultSqliteDirectory,
       };
     }
   } else {
@@ -117,19 +119,27 @@ export const buildDatabase = ({
     } else {
       resolvedDatabaseConfig = {
         kind: "sqlite",
-        filename: defaultSqliteFilename,
+        directory: defaultSqliteDirectory,
       };
     }
   }
 
   if (resolvedDatabaseConfig.kind === "sqlite") {
-    ensureDirExists(resolvedDatabaseConfig.filename!);
-    const rawDb = Sqlite(resolvedDatabaseConfig.filename!);
-    rawDb.pragma("journal_mode = WAL");
+    const [eventStoreDb, userStoreDb] = ["event-store.db", "user-store.db"].map(
+      (filename) => {
+        assert(resolvedDatabaseConfig.kind === "sqlite");
+        const dbFilePath = path.join(
+          resolvedDatabaseConfig.directory!,
+          filename
+        );
+        ensureDirExists(dbFilePath);
+        const rawDb = Sqlite(dbFilePath);
+        rawDb.pragma("journal_mode = WAL");
+        return patchSqliteDatabase({ db: rawDb });
+      }
+    );
 
-    const db = patchSqliteDatabase({ db: rawDb });
-
-    return { kind: "sqlite", db };
+    return { kind: "sqlite", eventStoreDb, userStoreDb };
   } else {
     const pool = new pg.Pool({
       connectionString: resolvedDatabaseConfig.connectionString,
