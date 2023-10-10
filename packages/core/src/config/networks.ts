@@ -3,6 +3,7 @@ import { mainnet } from "viem/chains";
 
 import type { ResolvedConfig } from "@/config/config.js";
 import type { PaymentService } from "@/payment/service.js";
+import { PaidRPCProvider } from "@/utils/paid-rpc-provider.js";
 
 const PAID_RPC_METHODS = [
   "eth_getLogs",
@@ -40,25 +41,22 @@ export function buildNetwork({
       network: network.name,
     };
 
+    let paidRPCProvider;
+
+    if (paymentService) {
+      paidRPCProvider = new PaidRPCProvider(
+        network as Network,
+        chain,
+        paymentService,
+        PAID_RPC_METHODS
+      );
+    }
+
     client = createPublicClient({
       chain,
-      // TODO: Implement a custom transport to change query params when making requests
-      transport: custom({
-        async request({ method, params }) {
-          let url = network.rpcUrl;
-
-          if (paymentService && PAID_RPC_METHODS.includes(method)) {
-            // Make payment before RPC request
-            const voucher = await paymentService.createVoucher(network.name);
-            url = `${url}?channelId=${voucher.channelId.string()}&amount=${voucher.amount?.toString()}&signature=${voucher.signature.toHexString()}`;
-          }
-
-          const httpTransport = http(url);
-          const { request } = httpTransport({ chain });
-
-          return request({ method, params });
-        },
-      }),
+      transport: paidRPCProvider
+        ? custom(paidRPCProvider)
+        : http(network.rpcUrl),
     });
     clients[network.chainId] = client;
   }
