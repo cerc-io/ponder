@@ -6,7 +6,7 @@ import pg from "pg";
 import { type TestContext, beforeEach } from "vitest";
 
 import { patchSqliteDatabase } from "@/config/database.js";
-import { buildOptions } from "@/config/options.js";
+import { AppMode, buildOptions } from "@/config/options.js";
 import { UserErrorService } from "@/errors/service.js";
 import { PostgresEventStore } from "@/event-store/postgres/store.js";
 import { SqliteEventStore } from "@/event-store/sqlite/store.js";
@@ -48,7 +48,7 @@ declare module "vitest" {
 beforeEach((context) => {
   const options = {
     ...buildOptions({
-      cliOptions: { configFile: "", rootDir: "" },
+      cliOptions: { configFile: "", rootDir: "", mode: AppMode.Standalone },
     }),
     telemetryDisabled: true,
   };
