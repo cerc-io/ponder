@@ -177,6 +177,7 @@ export class Ponder {
           gqlClient,
           networks,
           logFilters,
+          paymentService: this.paymentService,
         })
       : new InternalEventAggregatorService({
           common,
@@ -248,14 +249,14 @@ export class Ponder {
 
       // Note that this must occur before loadSchema and loadHandlers.
       await this.eventStore.migrateUp();
+    }
 
-      if (this.paymentService) {
-        // Initialize payment service with Nitro node
-        await this.paymentService.init();
+    if (this.paymentService) {
+      // Initialize payment service with Nitro node
+      await this.paymentService.init();
 
-        // Setup payment channel with Nitro nodes
-        await this.paymentService!.setupPaymentChannels();
-      }
+      // Setup payment channel with Nitro nodes
+      await this.paymentService!.setupPaymentChannels();
     }
 
     // Setup watcher services if mode is standalone or watcher

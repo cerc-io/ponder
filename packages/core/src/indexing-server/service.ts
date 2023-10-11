@@ -105,7 +105,7 @@ export class IndexingServerService {
           );
 
           if (error) {
-            return new GraphQLError(error.message);
+            return [new GraphQLError(error.message)];
           }
         }
 

@@ -33,6 +33,7 @@ interface IndexerPayments
   extends NonNullable<NonNullable<ResolvedConfig["indexer"]>["payments"]>,
     NitroChannelIds {}
 
+// TODO: Fetch from config
 const PAYMENTS_CONFIG = {
   cache: {
     maxAccounts: 1000,
@@ -46,10 +47,13 @@ const PAYMENTS_CONFIG = {
   requestTimeoutInSecs: 10,
 };
 
+// TODO: Fetch from rates config file
 const BASE_RATES_CONFIG = {
   freeQueriesLimit: 10,
   freeQueriesList: [],
-  queries: {},
+  queries: {
+    getLogEvents: "50",
+  },
   mutations: {},
 };
 
@@ -129,6 +133,7 @@ export class PaymentService {
       }
     );
 
+    this.paymentsManager.subscribeToVouchers();
     await Promise.all(addNitroPeerPromises);
   }
 
@@ -138,12 +143,30 @@ export class PaymentService {
     ).map(async (networkPayments) => this.setupPaymentChannel(networkPayments));
 
     if (this.indexerPayments) {
+      // Check if indexer Nitro node peer is dialable
+      const [isPeerDialable] = await this.nitro!.isPeerDialable(
+        this.indexerPayments.nitro.address
+      );
+
+      // Wait for peer info of indexer Nitro node to be received if it is not dialable
+      if (!isPeerDialable) {
+        while (true) {
+          const { address } =
+            await this.nitro!.msgService.peerInfoReceived().shift();
+
+          if (address === this.indexerPayments.nitro.address) {
+            break;
+          }
+        }
+      }
+
       await this.setupPaymentChannel(this.indexerPayments);
     }
 
     await Promise.all(setupNetworkPaymentChannelPromises);
   }
 
+  // TODO: Refactor code in watcher-ts util for same method
   async setupPaymentChannel(
     payments: { nitro: RemoteNitro } & NitroChannelIds
   ) {
@@ -240,8 +263,21 @@ export class PaymentService {
         // TODO: Fix type resolution for requestHeaders
         paymentHeader: (requestHeaders as any)[PAYMENT_HEADER_KEY],
       });
+
+      this.common.logger.debug({
+        service: "payment",
+        msg: `Verified payment for GQL queries ${querySelections.join(", ")}`,
+      });
     } catch (error) {
       if (error instanceof Error) {
+        this.common.logger.warn({
+          service: "payment",
+          msg: `Payment verification failed for GQL queries ${querySelections.join(
+            ", "
+          )}`,
+          error: error,
+        });
+
         return error;
       }
 
