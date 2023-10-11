@@ -251,13 +251,7 @@ export class Ponder {
         await this.paymentService.init();
 
         // Setup payment channel with Nitro nodes
-        const paymentChannelSetupPromises = this.networkSyncServices.map(
-          async ({ network }) => {
-            return this.paymentService!.setupPaymentChannel(network.name);
-          }
-        );
-
-        await Promise.all(paymentChannelSetupPromises);
+        await this.paymentService!.setupPaymentChannels();
       }
     }
 
