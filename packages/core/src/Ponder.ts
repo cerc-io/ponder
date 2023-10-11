@@ -166,7 +166,10 @@ export class Ponder {
       paymentService: this.paymentService,
     });
 
-    const gqlClient = createGqlClient(this.common.options.indexerGqlEndpoint);
+    const gqlClient = createGqlClient(
+      config.indexer?.gqlEndpoint ??
+        `http://localhost:${common.options.indexingPort}/graphql`
+    );
 
     this.eventAggregatorService = this.checkAppMode(AppMode.Watcher)
       ? new GqlEventAggregatorService({

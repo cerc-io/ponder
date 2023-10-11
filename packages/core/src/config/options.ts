@@ -31,7 +31,6 @@ export type Options = {
   uiEnabled: boolean;
 
   mode: AppMode;
-  indexerGqlEndpoint: string;
 };
 
 export const buildOptions = ({
@@ -68,9 +67,7 @@ export const buildOptions = ({
     maxHealthcheckDuration:
       configOptions?.maxHealthcheckDuration ?? railwayHealthcheckTimeout ?? 240,
 
-    mode: cliOptions.mode,
-    indexerGqlEndpoint:
-      configOptions?.indexerGqlEndpoint ?? "http://localhost:42070/graphql",
+    mode: configOptions?.mode ?? cliOptions.mode,
 
     telemetryUrl: "https://ponder.sh/api/telemetry",
     telemetryDisabled: Boolean(process.env.PONDER_TELEMETRY_DISABLED),

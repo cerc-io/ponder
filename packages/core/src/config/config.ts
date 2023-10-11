@@ -5,6 +5,8 @@ import path from "node:path";
 
 import { ensureDirExists } from "@/utils/exists.js";
 
+import type { AppMode } from "./options.js";
+
 export type RemoteNitro = {
   address: string;
   multiAddr: string;
@@ -104,8 +106,8 @@ export type ResolvedConfig = {
   options?: {
     /** Maximum number of seconds to wait for event processing to be complete before responding as healthy. If event processing exceeds this duration, the API may serve incomplete data. Default: `240` (4 minutes). */
     maxHealthcheckDuration?: number;
-    /** GQL endpoint of the indexer, required when running app in watcher mode */
-    indexerGqlEndpoint?: string;
+    /** Mode of the ponder app */
+    mode?: AppMode;
   };
   /** Indexer config required when running app in watcher mode */
   indexer?: {

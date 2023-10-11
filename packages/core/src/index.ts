@@ -1,5 +1,6 @@
 export { PonderApp } from "@/build/handlers.js";
 export type { Config, ResolvedConfig } from "@/config/config.js";
+export { AppMode } from "@/config/options.js";
 export type { Block } from "@/types/block.js";
 export type { ReadOnlyContract } from "@/types/contract.js";
 export type { Log } from "@/types/log.js";
