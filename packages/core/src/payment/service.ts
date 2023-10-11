@@ -1,8 +1,17 @@
 import type { utils as utilsInterface } from "@cerc-io/nitro-node";
 import nitroNodePkg from "@cerc-io/nitro-node";
 import { hex2Bytes } from "@cerc-io/nitro-util";
-import { PaymentsManager } from "@cerc-io/util";
-import type { DocumentNode } from "graphql";
+import {
+  PAYMENT_HEADER_KEY,
+  PaymentsManager,
+  validateGQLRequest,
+} from "@cerc-io/util";
+import type {
+  DocumentNode,
+  FieldNode,
+  OperationDefinitionNode,
+  SelectionNode,
+} from "graphql";
 import type { RequestHeaders } from "graphql-http";
 import assert from "node:assert";
 
@@ -169,27 +178,33 @@ export class PaymentService {
     gqlQuery: DocumentNode,
     gqlOperationName?: string | null
   ): Promise<null | Error> {
-    // TODO: Use payments manager
-    // validateGQLRequest(
-    //   this.paymentsManager,
-    //   {
-    //     operationName: gqlOperationName,
-    //     querySelections?: gqlQuery.definitions.map(def => def.loc.)
-    //     paymentHeader?: string | null;
-    //   }
-    // )
-    console.log("this.paymentsManager", this.paymentsManager);
-
-    console.log({
-      requestHeaders,
-      gqlQuery,
-      gqlOperationName,
-    });
-
-    console.log(
-      "parsedQuery",
-      gqlQuery.definitions.map((def) => console.log(def))
+    assert(
+      this.paymentsManager,
+      "Payment service is not setup before validating GQL request"
     );
+
+    const querySelections = gqlQuery.definitions
+      .filter((def) => def.kind === "OperationDefinition")
+      .map((def) => (def as OperationDefinitionNode).selectionSet.selections)
+      .flat()
+      .filter((selection) => selection.kind === "Field")
+      .map((selection: SelectionNode) => (selection as FieldNode).name.value);
+
+    try {
+      // Validate GQL request using paymentsManager
+      await validateGQLRequest(this.paymentsManager, {
+        operationName: gqlOperationName,
+        querySelections,
+        // TODO: Fix type resolution for requestHeaders
+        paymentHeader: (requestHeaders as any)[PAYMENT_HEADER_KEY],
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        return error;
+      }
+
+      throw error;
+    }
 
     return null;
   }
