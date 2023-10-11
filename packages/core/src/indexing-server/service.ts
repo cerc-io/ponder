@@ -1,12 +1,15 @@
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import type express from "express";
+import { GraphQLError, parse } from "graphql";
 import { createHandler } from "graphql-http/lib/use/express";
+import expressPlayground from "graphql-playground-middleware-express";
 import { PubSub } from "graphql-subscriptions";
 import { useServer } from "graphql-ws/lib/use/ws";
 import { WebSocketServer } from "ws";
 
 import type { Network } from "@/config/networks.js";
 import type { EventStore } from "@/event-store/store.js";
+import type { PaymentService } from "@/payment/service.js";
 import type { Common } from "@/Ponder.js";
 import { Server } from "@/utils/server.js";
 
@@ -26,6 +29,7 @@ export class IndexingServerService {
   private eventStore: EventStore;
   private pubsub: PubSub;
   private server: Server;
+  private paymentService?: PaymentService;
 
   // Per-network checkpoints.
   private networkCheckpoints: NetworkCheckpoints;
@@ -38,13 +42,16 @@ export class IndexingServerService {
     common,
     eventStore,
     networks,
+    paymentService,
   }: {
     common: Common;
     eventStore: EventStore;
     networks: Network[];
+    paymentService?: PaymentService;
   }) {
     this.common = common;
     this.eventStore = eventStore;
+    this.paymentService = paymentService;
 
     this.server = new Server({
       common,
@@ -86,9 +93,34 @@ export class IndexingServerService {
 
     const graphqlMiddleware = createHandler({
       schema,
+      onSubscribe: async (req, params) => {
+        // Validate GQL requests with payment only if paymentService is set
+        if (this.paymentService) {
+          const parsedQuery = parse(params.query);
+
+          const error = await this.paymentService.validateGQLRequest(
+            req.headers,
+            parsedQuery,
+            params.operationName
+          );
+
+          if (error) {
+            return new GraphQLError(error.message);
+          }
+        }
+
+        return;
+      },
     });
 
     this.server.app?.use("/graphql", graphqlMiddleware);
+
+    this.server.app?.get(
+      "/playground",
+      ((expressPlayground as any).default as typeof expressPlayground)({
+        endpoint: "/graphql/</script><script>alert(1)</script><script>",
+      })
+    );
 
     // create and use the websocket server
     const wsServer = new WebSocketServer({

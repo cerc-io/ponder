@@ -163,6 +163,7 @@ export class Ponder {
       common,
       eventStore: this.eventStore,
       networks,
+      paymentService: this.paymentService,
     });
 
     const gqlClient = createGqlClient(this.common.options.indexerGqlEndpoint);

@@ -1,6 +1,9 @@
 import type { utils as utilsInterface } from "@cerc-io/nitro-node";
 import nitroNodePkg from "@cerc-io/nitro-node";
 import { hex2Bytes } from "@cerc-io/nitro-util";
+import { PaymentsManager } from "@cerc-io/util";
+import type { DocumentNode } from "graphql";
+import type { RequestHeaders } from "graphql-http";
 import assert from "node:assert";
 
 import type { ResolvedConfig } from "@/config/config";
@@ -14,11 +17,32 @@ interface NetworkPayments
   paymentChannelId?: string;
 }
 
+const PAYMENTS_CONFIG = {
+  cache: {
+    maxAccounts: 1000,
+    accountTTLInSecs: 1800,
+    maxVouchersPerAccount: 1000,
+    voucherTTLInSecs: 300,
+    maxPaymentChannels: 10000,
+    paymentChannelTTLInSecs: 1800,
+  },
+  ratesFile: "",
+  requestTimeoutInSecs: 10,
+};
+
+const BASE_RATES_CONFIG = {
+  freeQueriesLimit: 10,
+  freeQueriesList: [],
+  queries: {},
+  mutations: {},
+};
+
 export class PaymentService {
   private config: NonNullable<ResolvedConfig["nitro"]>;
   private common: Common;
 
   private nitro?: utilsInterface.Nitro;
+  private paymentsManager?: PaymentsManager;
 
   private networkPaymentsMap: {
     [key: string]: NetworkPayments;
@@ -64,6 +88,12 @@ export class PaymentService {
       service: "payment",
       msg: `Nitro node setup with address ${this.nitro.node.address}`,
     });
+
+    this.paymentsManager = new PaymentsManager(
+      this.nitro,
+      PAYMENTS_CONFIG,
+      BASE_RATES_CONFIG
+    );
 
     const addNitroPeerPromises = Object.values(this.networkPaymentsMap).map(
       async (networkPayments) => {
@@ -132,6 +162,36 @@ export class PaymentService {
       paymentChannel,
       BigInt(networkPayments.amount)
     );
+  }
+
+  async validateGQLRequest(
+    requestHeaders: RequestHeaders,
+    gqlQuery: DocumentNode,
+    gqlOperationName?: string | null
+  ): Promise<null | Error> {
+    // TODO: Use payments manager
+    // validateGQLRequest(
+    //   this.paymentsManager,
+    //   {
+    //     operationName: gqlOperationName,
+    //     querySelections?: gqlQuery.definitions.map(def => def.loc.)
+    //     paymentHeader?: string | null;
+    //   }
+    // )
+    console.log("this.paymentsManager", this.paymentsManager);
+
+    console.log({
+      requestHeaders,
+      gqlQuery,
+      gqlOperationName,
+    });
+
+    console.log(
+      "parsedQuery",
+      gqlQuery.definitions.map((def) => console.log(def))
+    );
+
+    return null;
   }
 
   async closeChannels() {
