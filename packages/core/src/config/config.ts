@@ -5,6 +5,21 @@ import path from "node:path";
 
 import { ensureDirExists } from "@/utils/exists.js";
 
+import type { AppMode } from "./options.js";
+
+export type RemoteNitro = {
+  address: string;
+  /** Funding amounts for Nitro channels created with the node */
+  fundingAmounts: {
+    directFund: string;
+    virtualFund: string;
+  };
+};
+
+type RemoteNetworkNitro = {
+  multiAddr: string;
+} & RemoteNitro;
+
 export type ResolvedConfig = {
   /** Database to use for storing blockchain & entity data. Default: `"postgres"` if `DATABASE_URL` env var is present, otherwise `"sqlite"`. */
   database?:
@@ -32,15 +47,8 @@ export type ResolvedConfig = {
     maxRpcRequestConcurrency?: number;
     /** Configuration of payments required for network requests */
     payments?: {
-      nitro: {
-        address: string;
-        multiAddr: string;
-        /** Funding amounts for Nitro channels created with the node */
-        fundingAmounts: {
-          directFund: string;
-          virtualFund: string;
-        };
-      };
+      /** Config for Nitro node payments will be made to */
+      nitro: RemoteNetworkNitro;
       /** List of RPC methods which require payment */
       paidRPCMethods: string[];
       /** Amount to be paid for each network request */
@@ -101,8 +109,19 @@ export type ResolvedConfig = {
   options?: {
     /** Maximum number of seconds to wait for event processing to be complete before responding as healthy. If event processing exceeds this duration, the API may serve incomplete data. Default: `240` (4 minutes). */
     maxHealthcheckDuration?: number;
-    /** GQL endpoint of the indexer, required when running app in watcher mode */
-    indexerGqlEndpoint?: string;
+    /** Mode of the ponder app */
+    mode?: AppMode;
+  };
+  /** Indexer config required when running app in watcher mode */
+  indexer?: {
+    /** GQL endpoint of the indexer */
+    gqlEndpoint?: string;
+    payments?: {
+      /** Config for Nitro node payments will be made to */
+      nitro: RemoteNitro;
+      /** Amount to be paid for each network request */
+      amount: string;
+    };
   };
   /** Configuration for setting up Nitro node */
   nitro?: {

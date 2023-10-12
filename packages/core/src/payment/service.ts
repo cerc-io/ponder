@@ -1,24 +1,69 @@
 import type { utils as utilsInterface } from "@cerc-io/nitro-node";
 import nitroNodePkg from "@cerc-io/nitro-node";
 import { hex2Bytes } from "@cerc-io/nitro-util";
+import {
+  PAYMENT_HEADER_KEY,
+  PaymentsManager,
+  validateGQLRequest,
+} from "@cerc-io/util";
+import type {
+  DocumentNode,
+  FieldNode,
+  OperationDefinitionNode,
+  SelectionNode,
+} from "graphql";
+import type { RequestHeaders } from "graphql-http";
 import assert from "node:assert";
 
-import type { ResolvedConfig } from "@/config/config";
+import type { RemoteNitro, ResolvedConfig } from "@/config/config";
 import type { Common } from "@/Ponder";
 
 const { ChannelStatus, Destination, utils } = nitroNodePkg;
 
-interface NetworkPayments
-  extends NonNullable<ResolvedConfig["networks"][0]["payments"]> {
+interface NitroChannelIds {
   ledgerChannelId?: string;
   paymentChannelId?: string;
 }
+
+interface NetworkPayments
+  extends NonNullable<ResolvedConfig["networks"][0]["payments"]>,
+    NitroChannelIds {}
+
+interface IndexerPayments
+  extends NonNullable<NonNullable<ResolvedConfig["indexer"]>["payments"]>,
+    NitroChannelIds {}
+
+// TODO: Fetch from config
+const PAYMENTS_CONFIG = {
+  cache: {
+    maxAccounts: 1000,
+    accountTTLInSecs: 1800,
+    maxVouchersPerAccount: 1000,
+    voucherTTLInSecs: 300,
+    maxPaymentChannels: 10000,
+    paymentChannelTTLInSecs: 1800,
+  },
+  ratesFile: "",
+  requestTimeoutInSecs: 10,
+};
+
+// TODO: Fetch from rates config file
+const BASE_RATES_CONFIG = {
+  freeQueriesLimit: 10,
+  freeQueriesList: [],
+  queries: {
+    getLogEvents: "50",
+  },
+  mutations: {},
+};
 
 export class PaymentService {
   private config: NonNullable<ResolvedConfig["nitro"]>;
   private common: Common;
 
   private nitro?: utilsInterface.Nitro;
+  private paymentsManager?: PaymentsManager;
+  private indexerPayments?: IndexerPayments;
 
   private networkPaymentsMap: {
     [key: string]: NetworkPayments;
@@ -36,6 +81,10 @@ export class PaymentService {
         acc[network.name] = network.payments!;
         return acc;
       }, {});
+
+    if (config.indexer?.payments) {
+      this.indexerPayments = config.indexer?.payments;
+    }
   }
 
   async init() {
@@ -65,6 +114,12 @@ export class PaymentService {
       msg: `Nitro node setup with address ${this.nitro.node.address}`,
     });
 
+    this.paymentsManager = new PaymentsManager(
+      this.nitro,
+      PAYMENTS_CONFIG,
+      BASE_RATES_CONFIG
+    );
+
     const addNitroPeerPromises = Object.values(this.networkPaymentsMap).map(
       async (networkPayments) => {
         // Add nitro node accepting payments for RPC requests
@@ -78,60 +133,158 @@ export class PaymentService {
       }
     );
 
+    this.paymentsManager.subscribeToVouchers();
     await Promise.all(addNitroPeerPromises);
   }
 
-  async setupPaymentChannel(networkName: string) {
-    const networkPayments = this.networkPaymentsMap[networkName];
+  async setupPaymentChannels() {
+    const setupNetworkPaymentChannelPromises = Object.values(
+      this.networkPaymentsMap
+    ).map(async (networkPayments) => this.setupPaymentChannel(networkPayments));
 
-    if (!networkPayments) {
-      return;
+    if (this.indexerPayments) {
+      // Check if indexer Nitro node peer is dialable
+      const [isPeerDialable] = await this.nitro!.isPeerDialable(
+        this.indexerPayments.nitro.address
+      );
+
+      // Wait for peer info of indexer Nitro node to be received if it is not dialable
+      if (!isPeerDialable) {
+        while (true) {
+          const { address } =
+            await this.nitro!.msgService.peerInfoReceived().shift();
+
+          if (address === this.indexerPayments.nitro.address) {
+            break;
+          }
+        }
+      }
+
+      await this.setupPaymentChannel(this.indexerPayments);
     }
 
-    const { address } = networkPayments.nitro;
+    await Promise.all(setupNetworkPaymentChannelPromises);
+  }
 
-    await this.fetchPaymentChannelWithPeer(networkPayments, address);
+  // TODO: Refactor code in watcher-ts util for same method
+  async setupPaymentChannel(
+    payments: { nitro: RemoteNitro } & NitroChannelIds
+  ) {
+    const { address } = payments.nitro;
 
-    if (!networkPayments.ledgerChannelId) {
+    await this.fetchPaymentChannelWithPeer(payments, address);
+
+    if (!payments.ledgerChannelId) {
       this.common.logger.info({
         service: "payment",
         msg: `Creating ledger channel with nitro node ${address} ...`,
       });
 
-      networkPayments.ledgerChannelId = await this.nitro!.directFund(
+      payments.ledgerChannelId = await this.nitro!.directFund(
         address,
-        Number(networkPayments.nitro.fundingAmounts.directFund)
+        Number(payments.nitro.fundingAmounts.directFund)
       );
     }
 
-    if (!networkPayments.paymentChannelId) {
+    if (!payments.paymentChannelId) {
       this.common.logger.info({
         service: "payment",
         msg: `Creating payment channel with nitro node ${address} ...`,
       });
 
-      networkPayments.paymentChannelId = await this.nitro!.virtualFund(
+      payments.paymentChannelId = await this.nitro!.virtualFund(
         address,
-        Number(networkPayments.nitro.fundingAmounts.virtualFund)
+        Number(payments.nitro.fundingAmounts.virtualFund)
       );
     }
 
     this.common.logger.info({
       service: "payment",
-      msg: `Using payment channel ${networkPayments.paymentChannelId}`,
+      msg: `Using payment channel ${payments.paymentChannelId}`,
     });
   }
 
   async createVoucher(networkName: string) {
     const networkPayments = this.networkPaymentsMap[networkName];
 
-    assert(networkPayments.paymentChannelId, "Payment channel not created");
+    assert(
+      networkPayments.paymentChannelId,
+      `Payment channel not created with network ${networkName}`
+    );
     const paymentChannel = new Destination(networkPayments.paymentChannelId);
 
     return this.nitro!.node.createVoucher(
       paymentChannel,
       BigInt(networkPayments.amount)
     );
+  }
+
+  async payIndexer() {
+    assert(
+      this.indexerPayments?.paymentChannelId,
+      `Payment channel not created with indexer`
+    );
+
+    return this.nitro!.pay(
+      this.indexerPayments.paymentChannelId,
+      Number(this.indexerPayments.amount)
+    );
+  }
+
+  getPaymentHeader(voucher: nitroNodePkg.Voucher) {
+    const vhash = voucher.hash();
+    const vsig = utils.getJoinedSignature(voucher.signature);
+
+    return `vhash:${vhash},vsig:${vsig}`;
+  }
+
+  async validateGQLRequest(
+    requestHeaders: RequestHeaders,
+    gqlQuery: DocumentNode,
+    gqlOperationName?: string | null
+  ): Promise<null | Error> {
+    assert(
+      this.paymentsManager,
+      "Payment service is not setup before validating GQL request"
+    );
+
+    const querySelections = gqlQuery.definitions
+      .filter((def) => def.kind === "OperationDefinition")
+      .map((def) => (def as OperationDefinitionNode).selectionSet.selections)
+      .flat()
+      .filter((selection) => selection.kind === "Field")
+      .map((selection: SelectionNode) => (selection as FieldNode).name.value);
+
+    try {
+      // Validate GQL request using paymentsManager
+      await validateGQLRequest(this.paymentsManager, {
+        operationName: gqlOperationName,
+        querySelections,
+        // TODO: Fix type resolution for requestHeaders
+        paymentHeader: (requestHeaders as any)[PAYMENT_HEADER_KEY],
+      });
+
+      this.common.logger.debug({
+        service: "payment",
+        msg: `Verified payment for GQL queries ${querySelections.join(", ")}`,
+      });
+    } catch (error) {
+      if (error instanceof Error) {
+        this.common.logger.warn({
+          service: "payment",
+          msg: `Payment verification failed for GQL queries ${querySelections.join(
+            ", "
+          )}`,
+          error: error,
+        });
+
+        return error;
+      }
+
+      throw error;
+    }
+
+    return null;
   }
 
   async closeChannels() {
@@ -146,7 +299,7 @@ export class PaymentService {
   }
 
   private async fetchPaymentChannelWithPeer(
-    networkPayments: NetworkPayments,
+    payments: NitroChannelIds,
     nitroPeer: string
   ): Promise<void> {
     const ledgerChannels = await this.nitro!.node.getAllLedgerChannels();
@@ -159,14 +312,14 @@ export class PaymentService {
         continue;
       }
 
-      networkPayments.ledgerChannelId = ledgerChannel.iD.string();
+      payments.ledgerChannelId = ledgerChannel.iD.string();
       const paymentChannels = await this.nitro!.getPaymentChannelsByLedger(
-        networkPayments.ledgerChannelId
+        payments.ledgerChannelId
       );
 
       for (const paymentChannel of paymentChannels) {
         if (paymentChannel.status === ChannelStatus.Open) {
-          networkPayments.paymentChannelId = paymentChannel.iD.string();
+          payments.paymentChannelId = paymentChannel.iD.string();
           return;
         }
       }

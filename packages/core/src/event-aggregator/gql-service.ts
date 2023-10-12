@@ -5,12 +5,14 @@ import type {
   ObservableSubscription,
 } from "@apollo/client";
 import apolloClientPkg from "@apollo/client";
+import { PAYMENT_HEADER_KEY } from "@cerc-io/util";
 import type { Address } from "viem";
 import { type Hex } from "viem";
 
 import type { LogFilterName } from "@/build/handlers";
 import type { LogEventMetadata, LogFilter } from "@/config/logFilters";
 import type { Network } from "@/config/networks";
+import type { PaymentService } from "@/payment/service.js";
 import type { Common } from "@/Ponder";
 import type { Block } from "@/types/block";
 import type { Log } from "@/types/log";
@@ -30,17 +32,20 @@ type Cursor = {
 export class GqlEventAggregatorService extends EventAggregatorService {
   private gqlClient: ApolloClient<NormalizedCacheObject>;
   private subscriptions: ObservableSubscription[] = [];
+  private paymentService?: PaymentService;
 
   constructor({
     common,
     gqlClient,
     networks,
     logFilters,
+    paymentService,
   }: {
     common: Common;
     gqlClient: ApolloClient<NormalizedCacheObject>;
     networks: Network[];
     logFilters: LogFilter[];
+    paymentService?: PaymentService;
   }) {
     super({
       common,
@@ -48,9 +53,8 @@ export class GqlEventAggregatorService extends EventAggregatorService {
       logFilters,
     });
 
-    this.metrics = {};
-
     this.gqlClient = gqlClient;
+    this.paymentService = paymentService;
   }
 
   /** Fetches events for all registered log filters between the specified timestamps.
@@ -78,22 +82,35 @@ export class GqlEventAggregatorService extends EventAggregatorService {
     let cursor: Cursor | undefined;
 
     while (true) {
-      const { events, metadata } = await this.getLogEvents({
-        fromTimestamp,
-        toTimestamp,
-        filters: this.logFilters.map((logFilter) => ({
-          name: logFilter.name,
-          chainId: logFilter.filter.chainId,
-          address: logFilter.filter.address,
-          topics: logFilter.filter.topics,
-          fromBlock: logFilter.filter.startBlock,
-          toBlock: logFilter.filter.endBlock,
-          includeEventSelectors: Object.keys(
-            includeLogFilterEvents[logFilter.name]?.bySelector ?? {}
-          ) as Hex[],
-        })),
-        cursor,
-      });
+      const headers: { [key: string]: string } = {};
+
+      // Pay and add header only if paymentService is setup
+      // TODO: Check if nitro is configured for indexer
+      if (this.paymentService) {
+        const voucher = await this.paymentService.payIndexer();
+        const paymentHeader = this.paymentService.getPaymentHeader(voucher);
+        headers[PAYMENT_HEADER_KEY] = paymentHeader;
+      }
+
+      const { events, metadata } = await this.getLogEvents(
+        {
+          fromTimestamp,
+          toTimestamp,
+          filters: this.logFilters.map((logFilter) => ({
+            name: logFilter.name,
+            chainId: logFilter.filter.chainId,
+            address: logFilter.filter.address,
+            topics: logFilter.filter.topics,
+            fromBlock: logFilter.filter.startBlock,
+            toBlock: logFilter.filter.endBlock,
+            includeEventSelectors: Object.keys(
+              includeLogFilterEvents[logFilter.name]?.bySelector ?? {}
+            ) as Hex[],
+          })),
+          cursor,
+        },
+        headers
+      );
 
       // Set cursor to fetch next batch of events from indexingClient GQL query
       cursor = metadata.cursor;
@@ -181,20 +198,23 @@ export class GqlEventAggregatorService extends EventAggregatorService {
     this.clearListeners();
   }
 
-  private getLogEvents = async (variables: {
-    fromTimestamp: number;
-    toTimestamp: number;
-    filters?: {
-      name: string;
-      chainId: number;
-      address?: Address | Address[];
-      topics?: (Hex | Hex[] | null)[];
-      fromBlock?: number;
-      toBlock?: number;
-      includeEventSelectors?: Hex[];
-    }[];
-    cursor?: Cursor;
-  }) => {
+  private getLogEvents = async (
+    variables: {
+      fromTimestamp: number;
+      toTimestamp: number;
+      filters?: {
+        name: string;
+        chainId: number;
+        address?: Address | Address[];
+        topics?: (Hex | Hex[] | null)[];
+        fromBlock?: number;
+        toBlock?: number;
+        includeEventSelectors?: Hex[];
+      }[];
+      cursor?: Cursor;
+    },
+    headers: { [key: string]: string }
+  ) => {
     // Sanitize filter values for GQL query
     if (variables.filters) {
       variables.filters.forEach((filter) => {
@@ -304,6 +324,9 @@ export class GqlEventAggregatorService extends EventAggregatorService {
         }
       `,
       variables,
+      context: {
+        headers,
+      },
     });
 
     // Remove __typename from GQL query result

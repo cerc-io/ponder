@@ -15,6 +15,7 @@
     "simple-import-sort/exports": "error",
     "import/first": "error",
     "import/newline-after-import": "error",
+    "no-constant-condition": ["error", { "checkLoops": false }],
     "@typescript-eslint/consistent-type-imports": [
       "error",
       { "prefer": "type-imports" }
