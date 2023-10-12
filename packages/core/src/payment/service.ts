@@ -1,4 +1,4 @@
-import type { utils as utilsInterface } from "@cerc-io/nitro-node";
+import type { utils as utilsInterface, Voucher } from "@cerc-io/nitro-node";
 import nitroNodePkg from "@cerc-io/nitro-node";
 import { hex2Bytes } from "@cerc-io/nitro-util";
 import {
@@ -326,5 +326,14 @@ export class PaymentService {
 
       return;
     }
+  }
+
+  async payNetwork(networkName: string): Promise<Voucher> {
+    const networkPayments = this.networkPaymentsMap[networkName];
+
+    assert(networkPayments.paymentChannelId, "Payment channel not created");
+    const paymentChannel = networkPayments.paymentChannelId;
+
+    return this.nitro!.pay(paymentChannel, Number(networkPayments.amount));
   }
 }

@@ -1,3 +1,4 @@
+import { PAYMENT_HEADER_KEY } from "@cerc-io/util";
 import type { Chain } from "viem";
 import { HttpRequestError, RpcRequestError, TimeoutError } from "viem";
 import { stringify } from "viem";
@@ -38,12 +39,10 @@ export class PaidRPCProvider {
 
     if (this.paidRPCMethods.includes(method)) {
       // Create payment voucher before RPC request
-      const voucher = await this.paymentService.createVoucher(
-        this.network.name
-      );
+      const voucher = await this.paymentService.payNetwork(this.network.name);
 
       headers = {
-        "X-Payment": `vhash:${voucher.hash()},vsig:${voucher.signature.toHexString()}`,
+        [PAYMENT_HEADER_KEY]: this.paymentService.getPaymentHeader(voucher),
       };
     }
 
