@@ -33,19 +33,23 @@ export class PaidRPCProvider {
     params: unknown | object;
   }): Promise<any> {
     const chain = this.chain;
-    let url = this.network.rpcUrl || chain?.rpcUrls.default.http[0];
+    const url = this.network.rpcUrl || chain?.rpcUrls.default.http[0];
+    let headers;
 
     if (this.paidRPCMethods.includes(method)) {
       // Create payment voucher before RPC request
       const voucher = await this.paymentService.createVoucher(
         this.network.name
       );
-      url = `${url}?channelId=${voucher.channelId.string()}&amount=${voucher.amount?.toString()}&signature=${voucher.signature.toHexString()}`;
+
+      headers = {
+        "X-Payment": `vhash:${voucher.hash()},vsig:${voucher.signature.toHexString()}`,
+      };
     }
 
     const body = { method, params };
 
-    const { error, result } = await this.rpcRequest(body, url);
+    const { error, result } = await this.rpcRequest(body, url, headers);
 
     if (error)
       throw new RpcRequestError({
@@ -59,7 +63,12 @@ export class PaidRPCProvider {
 
   private async rpcRequest(
     body: { method: string; params: unknown | object },
-    url: string
+    url: string,
+    headers:
+      | {
+          [key: string]: string | number;
+        }
+      | undefined
   ) {
     try {
       const response = await fetch(url, {
@@ -73,6 +82,7 @@ export class PaidRPCProvider {
             )
           : stringify({ jsonrpc: "2.0", id: id++, ...body }),
         headers: {
+          ...headers,
           "Content-Type": "application/json",
         },
         method: "POST",
