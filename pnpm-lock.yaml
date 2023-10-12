@@ -2197,6 +2197,7 @@ packages:
 
   /@cerc-io/peer@0.2.64:
     resolution: {integrity: sha512-1J8g/mkc9wb6ohCVjoAu37JqczcSs+98QjcJLYMmNuiVBe+44yjXwfiKNOl93FIglbRj8TveT+y5QFWWkzgp7w==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fpeer/-/0.2.64/peer-0.2.64.tgz}
+    engines: {node: '>=14.16', npm: '>= 6.0.0'}
     dependencies:
       '@cerc-io/libp2p': 0.42.2-laconic-0.1.4
       '@cerc-io/prometheus-metrics': 1.1.4
