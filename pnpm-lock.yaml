@@ -298,8 +298,8 @@ importers:
         specifier: ^0.2.60
         version: 0.2.60
       '@cerc-io/util':
-        specifier: ^0.2.64
-        version: 0.2.64(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(better-sqlite3@8.7.0)(node-fetch@3.3.2)(typechain@7.0.1)(typescript@5.2.2)
+        specifier: ^0.2.65
+        version: 0.2.65(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(better-sqlite3@8.7.0)(node-fetch@3.3.2)(typechain@7.0.1)(typescript@5.2.2)
       '@graphql-tools/schema':
         specifier: ^10.0.0
         version: 10.0.0(graphql@15.8.0)
@@ -2195,8 +2195,9 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@cerc-io/peer@0.2.64:
-    resolution: {integrity: sha512-1J8g/mkc9wb6ohCVjoAu37JqczcSs+98QjcJLYMmNuiVBe+44yjXwfiKNOl93FIglbRj8TveT+y5QFWWkzgp7w==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fpeer/-/0.2.64/peer-0.2.64.tgz}
+  /@cerc-io/peer@0.2.65:
+    resolution: {integrity: sha512-JgE4r6V0ybOSa4Co/NYsRJWtk5MvbLQKbf8E0S6I4v77ivTHOvudROzIuMQMG/AW7t99MpP2B8nmEIj4Znqdcg==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fpeer/-/0.2.65/peer-0.2.65.tgz}
+    engines: {node: '>=14.16', npm: '>= 6.0.0'}
     dependencies:
       '@cerc-io/libp2p': 0.42.2-laconic-0.1.4
       '@cerc-io/prometheus-metrics': 1.1.4
@@ -2242,8 +2243,8 @@ packages:
       - supports-color
     dev: false
 
-  /@cerc-io/solidity-mapper@0.2.64:
-    resolution: {integrity: sha512-LRLwTjas1Vx+PMCu7pznBi8ylsrdnfg3LIta5jpZV4ES8WZHs/79DwpWv4R4Scub/yOO8C+kpkDAM1dELwYrUA==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fsolidity-mapper/-/0.2.64/solidity-mapper-0.2.64.tgz}
+  /@cerc-io/solidity-mapper@0.2.65:
+    resolution: {integrity: sha512-3Dfd/SX8aT8TkwaJxMRC8HgIvHlIBXunAK1HqmKpxTxFXdvrce57ZT/sDBGdkYYxgIJP6vbCks+/BFXx3UCa0w==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fsolidity-mapper/-/0.2.65/solidity-mapper-0.2.65.tgz}
     dependencies:
       dotenv: 10.0.0
     dev: false
@@ -2252,13 +2253,13 @@ packages:
     resolution: {integrity: sha512-2jFICUSyffuZ+8+qRhXuLSJq4GJ6Y02wxiXoubH0Kzv2lIKkJtWICY1ZQQhtXAvP0ncAQB85WJHqtqwH8l7J3Q==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fts-channel/-/1.0.3-ts-nitro-0.1.1/ts-channel-1.0.3-ts-nitro-0.1.1.tgz}
     dev: false
 
-  /@cerc-io/util@0.2.64(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(better-sqlite3@8.7.0)(node-fetch@3.3.2)(typechain@7.0.1)(typescript@5.2.2):
-    resolution: {integrity: sha512-au9qDnUQoeOzNOYxstftZ/y7rTHoc4vwW/6u+MkoKAw0/LJpZ2Ko5N7rA0JDNIZLY8W2XLZKXgyVsrxhsjNXdw==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Futil/-/0.2.64/util-0.2.64.tgz}
+  /@cerc-io/util@0.2.65(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(better-sqlite3@8.7.0)(node-fetch@3.3.2)(typechain@7.0.1)(typescript@5.2.2):
+    resolution: {integrity: sha512-b3Hvb2oJ+HFVVUFgHzJ10gx7v83dnQ4eLAV2s/ZQvpPJQK2p4+NHtS91VCNq3tK+AT81h0Yp3V3Fc5aUfk/kLQ==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Futil/-/0.2.65/util-0.2.65.tgz}
     dependencies:
       '@apollo/utils.keyvaluecache': 1.0.2
       '@cerc-io/nitro-node': 0.1.13(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
-      '@cerc-io/peer': 0.2.64
-      '@cerc-io/solidity-mapper': 0.2.64
+      '@cerc-io/peer': 0.2.65
+      '@cerc-io/solidity-mapper': 0.2.65
       '@cerc-io/ts-channel': 1.0.3-ts-nitro-0.1.1
       '@ethersproject/properties': 5.7.0
       '@ethersproject/providers': 5.7.2

@@ -225,17 +225,14 @@ export class PaymentService {
       `Payment channel not created with indexer`
     );
 
-    return this.nitro!.pay(
+    return this.paymentsManager!.sendPayment(
       this.indexerPayments.paymentChannelId,
-      Number(this.indexerPayments.amount)
+      this.indexerPayments.amount
     );
   }
 
-  getPaymentHeader(voucher: nitroNodePkg.Voucher) {
-    const vhash = voucher.hash();
-    const vsig = utils.getJoinedSignature(voucher.signature);
-
-    return `vhash:${vhash},vsig:${vsig}`;
+  getPaymentHeader(voucher: { vhash: string; vsig: string }) {
+    return `vhash:${voucher.vhash},vsig:${voucher.vsig}`;
   }
 
   async validateGQLRequest(
@@ -326,5 +323,18 @@ export class PaymentService {
 
       return;
     }
+  }
+
+  async payNetwork(
+    networkName: string
+  ): Promise<{ vhash: string; vsig: string }> {
+    const networkPayments = this.networkPaymentsMap[networkName];
+    assert(networkPayments.paymentChannelId, "Payment channel not created");
+    const paymentChannel = networkPayments.paymentChannelId;
+
+    return this.paymentsManager!.sendPayment(
+      paymentChannel,
+      networkPayments.amount
+    );
   }
 }
