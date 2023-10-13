@@ -42,7 +42,7 @@
     "@cerc-io/nitro-node": "^0.1.13",
     "@cerc-io/nitro-util": "^0.1.13",
     "@cerc-io/peer": "^0.2.60",
-    "@cerc-io/util": "^0.2.64",
+    "@cerc-io/util": "^0.2.65",
     "@graphql-tools/schema": "^10.0.0",
     "@jridgewell/trace-mapping": "^0.3.17",
     "apollo-type-bigint": "^0.1.3",
