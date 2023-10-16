@@ -1,3 +1,4 @@
+import assert from "assert";
 import type Sqlite from "better-sqlite3";
 import {
   type ExpressionBuilder,
@@ -481,78 +482,12 @@ export class SqliteEventStore implements EventStore {
       .orderBy("blocks.number", "asc")
       .orderBy("logs.logIndex", "asc");
 
-    const buildFilterAndCmprs = (
-      where: ExpressionBuilder<any, any>,
-      filter: (typeof filters)[number]
-    ) => {
-      const { cmpr, or } = where;
-      const cmprs = [];
-
-      cmprs.push(cmpr("logFilter_name", "=", filter.name));
-      cmprs.push(
-        cmpr(
-          "logs.chainId",
-          "=",
-          sql`cast (${sql.val(filter.chainId)} as integer)`
-        )
-      );
-
-      if (filter.address) {
-        // If it's an array of length 1, collapse it.
-        const address =
-          Array.isArray(filter.address) && filter.address.length === 1
-            ? filter.address[0]
-            : filter.address;
-        if (Array.isArray(address)) {
-          cmprs.push(or(address.map((a) => cmpr("logs.address", "=", a))));
-        } else {
-          cmprs.push(cmpr("logs.address", "=", address));
-        }
-      }
-
-      if (filter.topics) {
-        for (const idx_ of range(0, 4)) {
-          const idx = idx_ as 0 | 1 | 2 | 3;
-          // If it's an array of length 1, collapse it.
-          const raw = filter.topics[idx] ?? null;
-          if (raw === null) continue;
-          const topic = Array.isArray(raw) && raw.length === 1 ? raw[0] : raw;
-          if (Array.isArray(topic)) {
-            cmprs.push(or(topic.map((a) => cmpr(`logs.topic${idx}`, "=", a))));
-          } else {
-            cmprs.push(cmpr(`logs.topic${idx}`, "=", topic));
-          }
-        }
-      }
-
-      if (filter.fromBlock) {
-        cmprs.push(
-          cmpr(
-            "blocks.number",
-            ">=",
-            sql`cast (${sql.val(intToBlob(filter.fromBlock))} as blob)`
-          )
-        );
-      }
-
-      if (filter.toBlock) {
-        cmprs.push(
-          cmpr(
-            "blocks.number",
-            "<=",
-            sql`cast (${sql.val(intToBlob(filter.toBlock))} as blob)`
-          )
-        );
-      }
-
-      return cmprs;
-    };
     // Get full log objects, including the includeEventSelectors clause.
     const includedLogsBaseQuery = baseQuery
       .where((where) => {
         const { cmpr, and, or } = where;
         const cmprsForAllFilters = filters.map((filter) => {
-          const cmprsForFilter = buildFilterAndCmprs(where, filter);
+          const cmprsForFilter = this.buildFilterAndCmprs(where, filter);
           if (filter.includeEventSelectors) {
             cmprsForFilter.push(
               or(
@@ -582,7 +517,7 @@ export class SqliteEventStore implements EventStore {
       .where((where) => {
         const { and, or } = where;
         const cmprsForAllFilters = filters.map((filter) => {
-          const cmprsForFilter = buildFilterAndCmprs(where, filter);
+          const cmprsForFilter = this.buildFilterAndCmprs(where, filter);
           // NOTE: Not adding the includeEventSelectors clause here.
           return and(cmprsForFilter);
         });
@@ -756,5 +691,148 @@ export class SqliteEventStore implements EventStore {
 
       if (events.length < pageSize) break;
     }
+  }
+
+  async getEthLogs(args: {
+    chainId: number;
+    address?: Address;
+    topics?: (Hex | Hex[] | null)[];
+    fromBlock?: number;
+    toBlock?: number;
+    blockHash?: Hex;
+  }): Promise<Log[]> {
+    const { blockHash, ...commonFilterArgs } = args;
+
+    assert(
+      ["address", "topics", "fromBlock", "toBlock", "blockHash"].some(
+        (filterKey) => filterKey in args
+      ),
+      "Missing atleast one filter for getEthLogs"
+    );
+
+    let query = this.db
+      .selectFrom("logs")
+      .select([
+        "logs.address",
+        "logs.blockHash",
+        "logs.blockNumber",
+        "logs.chainId",
+        "logs.data",
+        "logs.id",
+        "logs.logIndex",
+        "logs.topic0",
+        "logs.topic1",
+        "logs.topic2",
+        "logs.topic3",
+        "logs.transactionHash",
+        "logs.transactionIndex",
+      ])
+      .where((where) => {
+        return where.and(this.buildFilterAndCmprs(where, commonFilterArgs));
+      });
+
+    if (blockHash) {
+      query = query.where("logs.blockHash", "=", blockHash);
+    }
+
+    const requestedLogs = await query
+      .orderBy("logs.blockNumber", "asc")
+      .orderBy("logs.logIndex", "asc")
+      .execute();
+
+    return requestedLogs.map((row) => {
+      return {
+        address: row.address,
+        blockHash: row.blockHash,
+        blockNumber: blobToBigInt(row.blockNumber),
+        data: row.data,
+        id: row.id,
+        logIndex: Number(row.logIndex),
+        removed: false,
+        topics: [row.topic0, row.topic1, row.topic2, row.topic3].filter(
+          (t): t is Hex => t !== null
+        ) as [Hex, ...Hex[]] | [],
+        transactionHash: row.transactionHash,
+        transactionIndex: Number(row.transactionIndex),
+      };
+    });
+  }
+
+  private buildFilterAndCmprs(
+    where: ExpressionBuilder<any, any>,
+    filter: {
+      name?: string;
+      chainId: number;
+      address?: Address | Address[];
+      topics?: (Hex | Hex[] | null)[];
+      fromBlock?: number;
+      toBlock?: number;
+      includeEventSelectors?: Hex[];
+    }
+  ) {
+    const { cmpr, or } = where;
+    const cmprs = [];
+
+    if (filter.name) {
+      cmprs.push(cmpr("logFilter_name", "=", filter.name));
+    }
+
+    cmprs.push(
+      cmpr(
+        "logs.chainId",
+        "=",
+        sql`cast (${sql.val(filter.chainId)} as integer)`
+      )
+    );
+
+    if (filter.address) {
+      // If it's an array of length 1, collapse it.
+      const address =
+        Array.isArray(filter.address) && filter.address.length === 1
+          ? filter.address[0]
+          : filter.address;
+      if (Array.isArray(address)) {
+        cmprs.push(or(address.map((a) => cmpr("logs.address", "=", a))));
+      } else {
+        cmprs.push(cmpr("logs.address", "=", address));
+      }
+    }
+
+    if (filter.topics) {
+      for (const idx_ of range(0, 4)) {
+        const idx = idx_ as 0 | 1 | 2 | 3;
+        // If it's an array of length 1, collapse it.
+        const raw = filter.topics[idx] ?? null;
+        if (raw === null) continue;
+        const topic = Array.isArray(raw) && raw.length === 1 ? raw[0] : raw;
+        if (Array.isArray(topic)) {
+          cmprs.push(or(topic.map((a) => cmpr(`logs.topic${idx}`, "=", a))));
+        } else {
+          cmprs.push(cmpr(`logs.topic${idx}`, "=", topic));
+        }
+      }
+    }
+
+    if (filter.fromBlock) {
+      cmprs.push(
+        cmpr(
+          "blocks.number",
+          ">=",
+          sql`cast (${sql.val(intToBlob(filter.fromBlock))} as blob)`
+        )
+      );
+    }
+
+    if (filter.toBlock) {
+      cmprs.push(
+        cmpr(
+          "blocks.number",
+          "<=",
+          sql`cast (${sql.val(intToBlob(filter.toBlock))} as blob)`
+        )
+      );
+    }
+
+    return cmprs;
   }
 }

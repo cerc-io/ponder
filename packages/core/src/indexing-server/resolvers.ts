@@ -84,10 +84,17 @@ export const getResolvers = ({
   };
 
   const getEthLogs: IFieldResolver<any, unknown> = async (_, args) => {
-    console.log("args", args);
-    // TODO: Get logs from eventStore
-    // const iterator = eventStore.getEthLogs(args);
+    const { chainId, ...filterArgs } = args;
+
+    const logs = eventStore.getEthLogs({
+      chainId: args.chainId,
+      ...filterArgs,
+    });
+
+    console.log("logs", logs);
+
     // TODO: Transform logs from eventStore to RpcLog type
+    return logs;
   };
 
   return {
