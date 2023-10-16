@@ -1,3 +1,15 @@
+const ethRpcLogFields = `
+  address: String!
+  blockHash: String!
+  blockNumber: BigInt!
+  data: String!
+  logIndex: Int!
+  removed: Boolean!
+  topics: [String!]
+  transactionHash: String!
+  transactionIndex: Int!
+`;
+
 export const indexingSchema = `
   scalar BigInt
 
@@ -19,19 +31,12 @@ export const indexingSchema = `
   }
 
   type EthRpcLog {
-    address: String!
-    blockHash: String!
-    blockNumber: BigInt!
-    data: String!
-    logIndex: Int!
-    removed: Boolean!
-    topics: [String!]
-    transactionHash: String!
-    transactionIndex: Int!
+    ${ethRpcLogFields}
   }
 
   # src/types/log.ts
-  type Log extends EthRpcLog {
+  type Log {
+    ${ethRpcLogFields}
     id: String!
   }
 
@@ -135,10 +140,11 @@ export const indexingSchema = `
     ): NetworkHistoricalSync!
 
     getEthLogs(
+      chainId: Int!
       address: String
       topics: [[String!]]
-      fromBlock: String
-      toBlock: String
+      fromBlock: Int
+      toBlock: Int
       blockHash: String
     ): [EthRpcLog!]
   }

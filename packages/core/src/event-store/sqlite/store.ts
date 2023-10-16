@@ -816,7 +816,7 @@ export class SqliteEventStore implements EventStore {
     if (filter.fromBlock) {
       cmprs.push(
         cmpr(
-          "blocks.number",
+          "logs.blockNumber",
           ">=",
           sql`cast (${sql.val(intToBlob(filter.fromBlock))} as blob)`
         )
@@ -826,7 +826,7 @@ export class SqliteEventStore implements EventStore {
     if (filter.toBlock) {
       cmprs.push(
         cmpr(
-          "blocks.number",
+          "logs.blockNumber",
           "<=",
           sql`cast (${sql.val(intToBlob(filter.toBlock))} as blob)`
         )

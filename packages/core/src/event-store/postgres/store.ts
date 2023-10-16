@@ -779,4 +779,9 @@ export class PostgresEventStore implements EventStore {
       if (events.length < pageSize) break;
     }
   }
+
+  // TODO: Implement method
+  async getEthLogs(): Promise<Log[]> {
+    return [];
+  }
 }
