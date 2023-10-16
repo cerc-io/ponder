@@ -83,12 +83,20 @@ export const getResolvers = ({
     };
   };
 
+  const getEthLogs: IFieldResolver<any, unknown> = async (_, args) => {
+    console.log("args", args);
+    // TODO: Get logs from eventStore
+    // const iterator = eventStore.getEthLogs(args);
+    // TODO: Transform logs from eventStore to RpcLog type
+  };
+
   return {
     BigInt: new ApolloBigInt("bigInt"),
 
     Query: {
       getLogEvents,
       getNetworkHistoricalSync,
+      getEthLogs,
     },
 
     Subscription: {

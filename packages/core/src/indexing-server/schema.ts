@@ -18,9 +18,7 @@ export const indexingSchema = `
     logIndex: Int!
   }
 
-  # src/types/log.ts
-  type Log {
-    id: String!
+  type EthRpcLog {
     address: String!
     blockHash: String!
     blockNumber: BigInt!
@@ -30,6 +28,11 @@ export const indexingSchema = `
     topics: [String!]
     transactionHash: String!
     transactionIndex: Int!
+  }
+
+  # src/types/log.ts
+  type Log extends EthRpcLog {
+    id: String!
   }
 
   # src/types/log.ts
@@ -126,9 +129,18 @@ export const indexingSchema = `
       filters: [Filter!],
       cursor: CursorInput
     ): LogEventsResult!
+
     getNetworkHistoricalSync(
       chainId: Int!
     ): NetworkHistoricalSync!
+
+    getEthLogs(
+      address: String
+      topics: [[String!]]
+      fromBlock: String
+      toBlock: String
+      blockHash: String
+    ): [EthRpcLog!]
   }
 
   type Checkpoint {

@@ -131,4 +131,13 @@ export interface EventStore {
       cursor?: Cursor;
     };
   }>;
+
+  // TODO: Implement method in eventStore for getting logs
+  getEthLogs(args: {
+    address: string;
+    topics: string[][];
+    fromBlock: string;
+    toBlock: string;
+    blockHash: string;
+  }): Log[];
 }
