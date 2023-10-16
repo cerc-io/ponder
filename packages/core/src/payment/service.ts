@@ -33,30 +33,6 @@ interface IndexerPayments
   extends NonNullable<NonNullable<ResolvedConfig["indexer"]>["payments"]>,
     NitroChannelIds {}
 
-// TODO: Fetch from config
-const PAYMENTS_CONFIG = {
-  cache: {
-    maxAccounts: 1000,
-    accountTTLInSecs: 1800,
-    maxVouchersPerAccount: 1000,
-    voucherTTLInSecs: 300,
-    maxPaymentChannels: 10000,
-    paymentChannelTTLInSecs: 1800,
-  },
-  ratesFile: "",
-  requestTimeoutInSecs: 10,
-};
-
-// TODO: Fetch from rates config file
-const BASE_RATES_CONFIG = {
-  freeQueriesLimit: 10,
-  freeQueriesList: [],
-  queries: {
-    getLogEvents: "50",
-  },
-  mutations: {},
-};
-
 export class PaymentService {
   private config: NonNullable<ResolvedConfig["nitro"]>;
   private common: Common;
@@ -116,8 +92,8 @@ export class PaymentService {
 
     this.paymentsManager = new PaymentsManager(
       this.nitro,
-      PAYMENTS_CONFIG,
-      BASE_RATES_CONFIG
+      this.config.payments,
+      this.config.baseRates
     );
 
     const addNitroPeerPromises = Object.values(this.networkPaymentsMap).map(
@@ -336,5 +312,13 @@ export class PaymentService {
       paymentChannel,
       networkPayments.amount
     );
+  }
+
+  checkIndexerPayments(): boolean {
+    if (this.indexerPayments) {
+      return true;
+    } else {
+      return false;
+    }
   }
 }

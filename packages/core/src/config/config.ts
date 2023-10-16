@@ -1,3 +1,4 @@
+import type { BaseRatesConfig, PaymentsConfig } from "@cerc-io/util";
 import type { AbiEvent } from "abitype";
 import { build } from "esbuild";
 import { existsSync, rmSync } from "node:fs";
@@ -131,6 +132,9 @@ export type ResolvedConfig = {
     contractAddresses: { [key: string]: string };
     relayMultiAddr: string;
     store: string;
+    payments: PaymentsConfig;
+    // TODO: get baserates from file
+    baseRates: BaseRatesConfig;
   };
 };
 

@@ -86,7 +86,7 @@ export class GqlEventAggregatorService extends EventAggregatorService {
 
       // Pay and add header only if paymentService is setup
       // TODO: Check if nitro is configured for indexer
-      if (this.paymentService) {
+      if (this.paymentService && this.paymentService.checkIndexerPayments()) {
         const voucher = await this.paymentService.payIndexer();
         const paymentHeader = this.paymentService.getPaymentHeader(voucher);
         headers[PAYMENT_HEADER_KEY] = paymentHeader;
