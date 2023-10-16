@@ -21,7 +21,7 @@ export type Options = {
   logDir: string;
 
   port: number;
-  indexingPort: number;
+  indexerPort: number;
   maxHealthcheckDuration: number;
   telemetryUrl: string;
   telemetryDisabled: boolean;
@@ -63,7 +63,7 @@ export const buildOptions = ({
     logDir: ".ponder/logs",
 
     port: Number(process.env.PORT ?? 42069),
-    indexingPort: Number(process.env.INDEXING_PORT ?? 42070),
+    indexerPort: Number(process.env.INDEXING_PORT ?? 42070),
     maxHealthcheckDuration:
       configOptions?.maxHealthcheckDuration ?? railwayHealthcheckTimeout ?? 240,
 

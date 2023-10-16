@@ -55,7 +55,7 @@ export class IndexingServerService {
 
     this.server = new Server({
       common,
-      port: common.options.indexingPort,
+      port: common.options.indexerPort,
     });
 
     // https://www.apollographql.com/docs/apollo-server/data/subscriptions#the-pubsub-class
