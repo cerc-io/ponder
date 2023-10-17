@@ -15,6 +15,7 @@ import type {
 import type { RequestHeaders } from "graphql-http";
 import assert from "node:assert";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import type { RemoteNitro, ResolvedConfig } from "@/config/config";
 import type { Common } from "@/Ponder";
@@ -91,9 +92,17 @@ export class PaymentService {
       msg: `Nitro node setup with address ${this.nitro.node.address}`,
     });
 
-    const ratesFileData = readFileSync(this.config.payments.ratesFile, {
-      encoding: "utf-8",
-    });
+    const ratesFileData = readFileSync(
+      path.isAbsolute(this.config.payments.ratesFile)
+        ? this.config.payments.ratesFile
+        : path.resolve(
+            path.dirname(this.common.options.configFile),
+            path.basename(this.config.payments.ratesFile)
+          ),
+      {
+        encoding: "utf-8",
+      }
+    );
 
     this.paymentsManager = new PaymentsManager(
       this.nitro,
@@ -320,10 +329,6 @@ export class PaymentService {
   }
 
   checkIndexerPayments(): boolean {
-    if (this.indexerPayments) {
-      return true;
-    } else {
-      return false;
-    }
+    return Boolean(this.indexerPayments);
   }
 }
