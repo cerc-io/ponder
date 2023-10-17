@@ -12,6 +12,7 @@ export type Network = {
   chainId: number;
   client: PublicClient;
   rpcUrl?: string;
+  indexerUrl?: string;
   pollingInterval: number;
   defaultMaxBlockRange: number;
   maxRpcRequestConcurrency: number;
@@ -44,12 +45,7 @@ export function buildNetwork({
 
     if (network.indexerUrl) {
       // Use IndexerGQLProvider if indexerUrl is set for network
-      customProvider = new IndexerGQLProvider(
-        network,
-        chain,
-        common,
-        httpTransport
-      );
+      customProvider = new IndexerGQLProvider(network, chain, common);
     } else {
       if (paymentService && network.payments) {
         // Use PaidRPCProvider if paymentService and network.payments are configured
@@ -75,6 +71,7 @@ export function buildNetwork({
     chainId: network.chainId,
     client,
     rpcUrl: network.rpcUrl,
+    indexerUrl: network.indexerUrl,
     pollingInterval: network.pollingInterval ?? 1_000,
     defaultMaxBlockRange: getDefaultMaxBlockRange(network),
     maxRpcRequestConcurrency: network.maxRpcRequestConcurrency ?? 10,
