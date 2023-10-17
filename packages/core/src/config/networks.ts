@@ -40,10 +40,16 @@ export function buildNetwork({
     };
 
     let customProvider;
+    const httpTransport = http(network.rpcUrl);
 
     if (network.indexerUrl) {
       // Use IndexerGQLProvider if indexerUrl is set for network
-      customProvider = new IndexerGQLProvider(network, chain, common);
+      customProvider = new IndexerGQLProvider(
+        network,
+        chain,
+        common,
+        httpTransport
+      );
     } else {
       if (paymentService && network.payments) {
         // Use PaidRPCProvider if paymentService and network.payments are configured
@@ -59,7 +65,7 @@ export function buildNetwork({
 
     client = createPublicClient({
       chain,
-      transport: customProvider ? custom(customProvider) : http(network.rpcUrl),
+      transport: customProvider ? custom(customProvider) : httpTransport,
     });
     clients[network.chainId] = client;
   }

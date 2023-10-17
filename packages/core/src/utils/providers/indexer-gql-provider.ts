@@ -1,10 +1,7 @@
-import {
-  type ApolloClient,
-  type NormalizedCacheObject,
-  gql,
-} from "@apollo/client";
+import { type ApolloClient, type NormalizedCacheObject } from "@apollo/client";
+import apolloClientPkg from "@apollo/client";
 import assert from "assert";
-import type { Chain } from "viem";
+import type { Chain, HttpTransport } from "viem";
 import { fromHex, RpcRequestError } from "viem";
 
 import type { ResolvedConfig } from "@/config/config.js";
@@ -13,21 +10,26 @@ import { createGqlClient } from "@/utils/graphql-client.js";
 // TODO: Add payment to queries
 // import type { PaymentService } from "@/payment/service.js";
 
+const { gql } = apolloClientPkg;
+
 export class IndexerGQLProvider {
   private network: ResolvedConfig["networks"][0];
   private chain: Chain;
   private gqlClient: ApolloClient<NormalizedCacheObject>;
   private common: Common;
+  private httpTransport: HttpTransport;
 
   constructor(
     network: ResolvedConfig["networks"][0],
     chain: Chain,
-    common: Common
+    common: Common,
+    httpTransport: HttpTransport
   ) {
     assert(network.indexerUrl);
     this.network = network;
     this.chain = chain;
     this.common = common;
+    this.httpTransport = httpTransport;
     this.gqlClient = createGqlClient(network.indexerUrl);
   }
 
@@ -67,13 +69,17 @@ export class IndexerGQLProvider {
       case "eth_getLogs":
         return this.gqlGetLogs(body.params, chainId, headers);
 
-      default:
+      default: {
         this.common.logger.warn({
           service: "indexer gql provider",
-          msg: `${body.method} method is not supported by indexer`,
+          msg: `${body.method} method is not supported by indexer. Using httpTransport`,
         });
 
-        break;
+        // TODO: Use GQL query for eth_getBlockByNumber and eth_getBlockByHash
+        // TODO: Remove use of httpTransport
+        const { request } = this.httpTransport({ chain: this.chain });
+        return request(body);
+      }
     }
   }
 
@@ -90,7 +96,7 @@ export class IndexerGQLProvider {
     filterArgs.fromBlock =
       filterArgs.fromBlock && fromHex(filterArgs.fromBlock, "number");
     filterArgs.toBlock =
-      filterArgs.toBlock && fromHex(filterArgs.fromBlock, "number");
+      filterArgs.toBlock && fromHex(filterArgs.toBlock, "number");
 
     const {
       data: { getEthLogs },
