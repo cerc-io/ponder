@@ -84,7 +84,8 @@ export class PaymentService {
       this.config.chainPrivateKey,
       this.config.contractAddresses,
       peer,
-      this.config.store
+      true,
+      path.resolve(this.config.store || "./.ponder/nitro-db")
     );
 
     this.common.logger.info({
@@ -172,7 +173,7 @@ export class PaymentService {
 
       payments.ledgerChannelId = await this.nitro!.directFund(
         address,
-        Number(payments.nitro.fundingAmounts.directFund)
+        payments.nitro.fundingAmounts.directFund
       );
     }
 
@@ -184,7 +185,7 @@ export class PaymentService {
 
       payments.paymentChannelId = await this.nitro!.virtualFund(
         address,
-        Number(payments.nitro.fundingAmounts.virtualFund)
+        payments.nitro.fundingAmounts.virtualFund
       );
     }
 
