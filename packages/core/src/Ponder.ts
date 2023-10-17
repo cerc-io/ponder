@@ -168,7 +168,7 @@ export class Ponder {
 
     const gqlClient = createGqlClient(
       config.indexer?.gqlEndpoint ??
-        `http://localhost:${common.options.indexingPort}/graphql`
+        `http://localhost:${common.options.indexerPort}/graphql`
     );
 
     this.eventAggregatorService = this.checkAppMode(AppMode.Watcher)

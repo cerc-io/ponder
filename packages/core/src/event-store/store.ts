@@ -131,4 +131,14 @@ export interface EventStore {
       cursor?: Cursor;
     };
   }>;
+
+  // TODO: Implement method in postgres eventStore for getting logs
+  getEthLogs(args: {
+    chainId: number;
+    address?: Address;
+    topics?: (Hex | Hex[] | null)[];
+    fromBlock?: number;
+    toBlock?: number;
+    blockHash?: Hex;
+  }): Promise<Log[]>;
 }

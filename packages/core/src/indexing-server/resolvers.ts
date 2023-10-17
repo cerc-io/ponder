@@ -83,12 +83,23 @@ export const getResolvers = ({
     };
   };
 
+  const getEthLogs: IFieldResolver<any, unknown> = async (_, args) => {
+    const { chainId, ...filterArgs } = args;
+
+    // Log type returned by getEthLogs satisfied RpcLog type in viem
+    return eventStore.getEthLogs({
+      chainId: args.chainId,
+      ...filterArgs,
+    });
+  };
+
   return {
     BigInt: new ApolloBigInt("bigInt"),
 
     Query: {
       getLogEvents,
       getNetworkHistoricalSync,
+      getEthLogs,
     },
 
     Subscription: {
