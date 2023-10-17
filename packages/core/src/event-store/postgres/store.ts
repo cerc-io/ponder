@@ -8,7 +8,14 @@ import {
   sql,
 } from "kysely";
 import type pg from "pg";
-import type { Address, Hex, RpcBlock, RpcLog, RpcTransaction } from "viem";
+import type {
+  Address,
+  Hash,
+  Hex,
+  RpcBlock,
+  RpcLog,
+  RpcTransaction,
+} from "viem";
 
 import type { Block } from "@/types/block.js";
 import type { Log } from "@/types/log.js";
@@ -783,5 +790,12 @@ export class PostgresEventStore implements EventStore {
   // TODO: Implement method
   async getEthLogs(): Promise<Log[]> {
     return [];
+  }
+
+  // TODO: Implement method
+  async getEthBlock(): Promise<
+    { block: Block; transactions: Transaction[] | Hash[] } | undefined
+  > {
+    return;
   }
 }

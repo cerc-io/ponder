@@ -1,5 +1,12 @@
 import type { Kysely, Migrator } from "kysely";
-import type { Address, Hex, RpcBlock, RpcLog, RpcTransaction } from "viem";
+import type {
+  Address,
+  Hash,
+  Hex,
+  RpcBlock,
+  RpcLog,
+  RpcTransaction,
+} from "viem";
 
 import type { Block } from "@/types/block.js";
 import type { Log } from "@/types/log.js";
@@ -141,4 +148,17 @@ export interface EventStore {
     toBlock?: number;
     blockHash?: Hex;
   }): Promise<Log[]>;
+
+  // TODO: Implement method in postgres eventStore for getting blocks
+  getEthBlock(args: {
+    chainId: number;
+    blockHash?: Hex;
+    blockNumber?: number;
+    fullTransactions?: boolean;
+    latest?: boolean;
+  }): Promise<
+    | { block: Block; transactions: Transaction[] | Hash[] }
+    | undefined
+    | undefined
+  >;
 }

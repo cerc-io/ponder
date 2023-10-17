@@ -2,13 +2,21 @@ import assert from "assert";
 import type Sqlite from "better-sqlite3";
 import {
   type ExpressionBuilder,
+  type SelectQueryBuilder,
   Kysely,
   Migrator,
   NO_MIGRATIONS,
   sql,
   SqliteDialect,
 } from "kysely";
-import type { Address, Hex, RpcBlock, RpcLog, RpcTransaction } from "viem";
+import type {
+  Address,
+  Hash,
+  Hex,
+  RpcBlock,
+  RpcLog,
+  RpcTransaction,
+} from "viem";
 
 import type { Block } from "@/types/block.js";
 import type { Log } from "@/types/log.js";
@@ -756,6 +764,180 @@ export class SqliteEventStore implements EventStore {
         transactionIndex: Number(row.transactionIndex),
       };
     });
+  }
+
+  async getEthBlock(args: {
+    chainId: number;
+    blockHash?: Hex;
+    blockNumber?: number;
+    fullTransactions?: boolean;
+  }): Promise<
+    { block: Block; transactions: Transaction[] | Hash[] } | undefined
+  > {
+    const { chainId, blockHash, blockNumber, fullTransactions = false } = args;
+
+    let query: SelectQueryBuilder<
+      EventStoreTables,
+      "blocks" | "transactions",
+      any
+    > = this.db
+      .selectFrom("blocks")
+      .select([
+        "blocks.baseFeePerGas as block_baseFeePerGas",
+        "blocks.chainId as block_chainId",
+        "blocks.difficulty as block_difficulty",
+        "blocks.extraData as block_extraData",
+        "blocks.gasLimit as block_gasLimit",
+        "blocks.gasUsed as block_gasUsed",
+        "blocks.hash as block_hash",
+        "blocks.logsBloom as block_logsBloom",
+        "blocks.miner as block_miner",
+        "blocks.mixHash as block_mixHash",
+        "blocks.nonce as block_nonce",
+        "blocks.number as block_number",
+        "blocks.parentHash as block_parentHash",
+        "blocks.receiptsRoot as block_receiptsRoot",
+        "blocks.sha3Uncles as block_sha3Uncles",
+        "blocks.size as block_size",
+        "blocks.stateRoot as block_stateRoot",
+        "blocks.timestamp as block_timestamp",
+        "blocks.totalDifficulty as block_totalDifficulty",
+        "blocks.transactionsRoot as block_transactionsRoot",
+      ])
+      .where("blocks.chainId", "=", sql`cast (${sql.val(chainId)} as integer)`);
+
+    if (blockHash) {
+      query = query.where("blocks.hash", "=", blockHash);
+    }
+
+    if (blockNumber) {
+      query = query.where(
+        "blocks.number",
+        "=",
+        sql`cast (${sql.val(intToBlob(blockNumber))} as blob)`
+      );
+    }
+
+    // If neither blockHash or blockNumber is provided, latest block is returned with order and limit query
+    const [requestedBlock] = await query
+      .orderBy("blocks.blockNumber", "desc")
+      .limit(1)
+      .execute();
+
+    if (requestedBlock) {
+      const txsQuery = this.db
+        .selectFrom("transactions")
+        .select([
+          "transactions.hash as tx_hash",
+          "transactions.blockHash as tx_blockHash",
+        ])
+        .where(
+          "transactions.chainId",
+          "=",
+          sql`cast (${sql.val(chainId)} as integer)`
+        )
+        .where("transactions.blockHash", "=", requestedBlock.block_hash)
+        .$if(fullTransactions, (qb) =>
+          qb.select([
+            "transactions.accessList as tx_accessList",
+            "transactions.blockNumber as tx_blockNumber",
+            "transactions.chainId as tx_chainId",
+            "transactions.from as tx_from",
+            "transactions.gas as tx_gas",
+            "transactions.gasPrice as tx_gasPrice",
+            "transactions.input as tx_input",
+            "transactions.maxFeePerGas as tx_maxFeePerGas",
+            "transactions.maxPriorityFeePerGas as tx_maxPriorityFeePerGas",
+            "transactions.nonce as tx_nonce",
+            "transactions.r as tx_r",
+            "transactions.s as tx_s",
+            "transactions.to as tx_to",
+            "transactions.transactionIndex as tx_transactionIndex",
+            "transactions.type as tx_type",
+            "transactions.value as tx_value",
+            "transactions.v as tx_v",
+          ])
+        );
+
+      const requestedTxs = await txsQuery.execute();
+
+      return {
+        block: {
+          baseFeePerGas: requestedBlock.block_baseFeePerGas
+            ? blobToBigInt(requestedBlock.block_baseFeePerGas)
+            : null,
+          difficulty: blobToBigInt(requestedBlock.block_difficulty),
+          extraData: requestedBlock.block_extraData,
+          gasLimit: blobToBigInt(requestedBlock.block_gasLimit),
+          gasUsed: blobToBigInt(requestedBlock.block_gasUsed),
+          hash: requestedBlock.block_hash,
+          logsBloom: requestedBlock.block_logsBloom,
+          miner: requestedBlock.block_miner,
+          mixHash: requestedBlock.block_mixHash,
+          nonce: requestedBlock.block_nonce,
+          number: blobToBigInt(requestedBlock.block_number),
+          parentHash: requestedBlock.block_parentHash,
+          receiptsRoot: requestedBlock.block_receiptsRoot,
+          sha3Uncles: requestedBlock.block_sha3Uncles,
+          size: blobToBigInt(requestedBlock.block_size),
+          stateRoot: requestedBlock.block_stateRoot,
+          timestamp: blobToBigInt(requestedBlock.block_timestamp),
+          totalDifficulty: blobToBigInt(requestedBlock.block_totalDifficulty),
+          transactionsRoot: requestedBlock.block_transactionsRoot,
+        },
+        transactions: fullTransactions
+          ? requestedTxs.map(
+              (row): Transaction => ({
+                blockHash: row.tx_blockHash,
+                blockNumber: blobToBigInt(row.tx_blockNumber!),
+                from: row.tx_from!,
+                gas: blobToBigInt(row.tx_gas!),
+                hash: row.tx_hash,
+                input: row.tx_input!,
+                nonce: Number(row.tx_nonce),
+                r: row.tx_r!,
+                s: row.tx_s!,
+                to: row.tx_to!,
+                transactionIndex: Number(row.tx_transactionIndex),
+                value: blobToBigInt(row.tx_value!),
+                v: blobToBigInt(row.tx_v!),
+                ...(row.tx_type === "0x0"
+                  ? {
+                      type: "legacy",
+                      gasPrice: blobToBigInt(row.tx_gasPrice!),
+                    }
+                  : row.tx_type === "0x1"
+                  ? {
+                      type: "eip2930",
+                      gasPrice: blobToBigInt(row.tx_gasPrice!),
+                      accessList: JSON.parse(row.tx_accessList!),
+                    }
+                  : row.tx_type === "0x2"
+                  ? {
+                      type: "eip1559",
+                      maxFeePerGas: blobToBigInt(row.tx_maxFeePerGas!),
+                      maxPriorityFeePerGas: blobToBigInt(
+                        row.tx_maxPriorityFeePerGas!
+                      ),
+                    }
+                  : row.tx_type === "0x7e"
+                  ? {
+                      type: "deposit",
+                      maxFeePerGas: blobToBigInt(row.tx_maxFeePerGas!),
+                      maxPriorityFeePerGas: blobToBigInt(
+                        row.tx_maxPriorityFeePerGas!
+                      ),
+                    }
+                  : {
+                      type: row.tx_type!,
+                    }),
+              })
+            )
+          : requestedTxs.map((row) => row.tx_hash),
+      };
+    }
+
+    return;
   }
 
   private buildFilterAndCmprs(
