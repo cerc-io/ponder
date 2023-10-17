@@ -104,12 +104,13 @@ export class Ponder {
     const contracts = buildContracts({
       options,
       config,
+      common,
       paymentService: this.paymentService,
     });
 
     const networks = config.networks
       .map((network) =>
-        buildNetwork({ network, paymentService: this.paymentService })
+        buildNetwork({ network, paymentService: this.paymentService, common })
       )
       .filter((network) => {
         const hasLogFilters = logFilters.some(

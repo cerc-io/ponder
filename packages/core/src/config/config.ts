@@ -41,6 +41,8 @@ export type ResolvedConfig = {
     chainId: number;
     /** RPC URL. Default: if available, a public RPC provider. */
     rpcUrl?: string;
+    /** Indexer URL for fetching network data. */
+    indexerUrl?: string;
     /** Polling frequency (in ms). Default: `1_000`. */
     pollingInterval?: number;
     /** Maximum concurrency of RPC requests during the historical sync. Default: `10`. */
