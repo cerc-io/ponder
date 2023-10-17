@@ -14,6 +14,7 @@ import type {
 } from "graphql";
 import type { RequestHeaders } from "graphql-http";
 import assert from "node:assert";
+import { readFileSync } from "node:fs";
 
 import type { RemoteNitro, ResolvedConfig } from "@/config/config";
 import type { Common } from "@/Ponder";
@@ -90,10 +91,14 @@ export class PaymentService {
       msg: `Nitro node setup with address ${this.nitro.node.address}`,
     });
 
+    const ratesFileData = readFileSync(this.config.payments.ratesFile, {
+      encoding: "utf-8",
+    });
+
     this.paymentsManager = new PaymentsManager(
       this.nitro,
       this.config.payments,
-      this.config.baseRates
+      JSON.parse(ratesFileData)
     );
 
     const addNitroPeerPromises = Object.values(this.networkPaymentsMap).map(
