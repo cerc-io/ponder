@@ -3,19 +3,19 @@ import type { Chain } from "viem";
 import { HttpRequestError, RpcRequestError, TimeoutError } from "viem";
 import { stringify } from "viem";
 
-import type { Network } from "@/config/networks.js";
+import type { ResolvedConfig } from "@/config/config.js";
 import type { PaymentService } from "@/payment/service.js";
 
 let id = 0;
 
 export class PaidRPCProvider {
-  network: Network;
+  network: ResolvedConfig["networks"][0];
   paymentService: PaymentService;
   paidRPCMethods: string[];
   chain: Chain;
 
   constructor(
-    network: Network,
+    network: ResolvedConfig["networks"][0],
     chain: Chain,
     paymentService: PaymentService,
     paidRPCMethods: string[]

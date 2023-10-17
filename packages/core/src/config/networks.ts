@@ -3,7 +3,9 @@ import { mainnet } from "viem/chains";
 
 import type { ResolvedConfig } from "@/config/config.js";
 import type { PaymentService } from "@/payment/service.js";
-import { PaidRPCProvider } from "@/utils/paid-rpc-provider.js";
+import type { Common } from "@/Ponder.js";
+import { IndexerGQLProvider } from "@/utils/providers/indexer-gql-provider.js";
+import { PaidRPCProvider } from "@/utils/providers/paid-rpc-provider.js";
 
 export type Network = {
   name: string;
@@ -21,9 +23,11 @@ const clients: Record<number, PublicClient | undefined> = {};
 export function buildNetwork({
   network,
   paymentService,
+  common,
 }: {
   network: ResolvedConfig["networks"][0];
   paymentService?: PaymentService;
+  common: Common;
 }) {
   let client = clients[network.chainId];
 
@@ -35,22 +39,27 @@ export function buildNetwork({
       network: network.name,
     };
 
-    let paidRPCProvider;
+    let customProvider;
 
-    if (paymentService && network.payments) {
-      paidRPCProvider = new PaidRPCProvider(
-        network as Network,
-        chain,
-        paymentService,
-        network.payments.paidRPCMethods
-      );
+    if (network.indexerUrl) {
+      // Use IndexerGQLProvider if indexerUrl is set for network
+      customProvider = new IndexerGQLProvider(network, chain, common);
+    } else {
+      if (paymentService && network.payments) {
+        // Use PaidRPCProvider if paymentService and network.payments are configured
+        // Provider is set only for network.rpcUrl and not network.indexerUrl
+        customProvider = new PaidRPCProvider(
+          network,
+          chain,
+          paymentService,
+          network.payments.paidRPCMethods
+        );
+      }
     }
 
     client = createPublicClient({
       chain,
-      transport: paidRPCProvider
-        ? custom(paidRPCProvider)
-        : http(network.rpcUrl),
+      transport: customProvider ? custom(customProvider) : http(network.rpcUrl),
     });
     clients[network.chainId] = client;
   }
