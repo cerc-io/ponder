@@ -328,7 +328,7 @@ export class PaymentService {
     );
   }
 
-  checkIndexerPayments(): boolean {
+  isIndexerPaymentConfigured(): boolean {
     return Boolean(this.indexerPayments);
   }
 }
