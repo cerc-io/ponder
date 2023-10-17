@@ -14,6 +14,8 @@ import type {
 } from "graphql";
 import type { RequestHeaders } from "graphql-http";
 import assert from "node:assert";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import type { RemoteNitro, ResolvedConfig } from "@/config/config";
 import type { Common } from "@/Ponder";
@@ -32,30 +34,6 @@ interface NetworkPayments
 interface IndexerPayments
   extends NonNullable<NonNullable<ResolvedConfig["indexer"]>["payments"]>,
     NitroChannelIds {}
-
-// TODO: Fetch from config
-const PAYMENTS_CONFIG = {
-  cache: {
-    maxAccounts: 1000,
-    accountTTLInSecs: 1800,
-    maxVouchersPerAccount: 1000,
-    voucherTTLInSecs: 300,
-    maxPaymentChannels: 10000,
-    paymentChannelTTLInSecs: 1800,
-  },
-  ratesFile: "",
-  requestTimeoutInSecs: 10,
-};
-
-// TODO: Fetch from rates config file
-const BASE_RATES_CONFIG = {
-  freeQueriesLimit: 10,
-  freeQueriesList: [],
-  queries: {
-    getLogEvents: "50",
-  },
-  mutations: {},
-};
 
 export class PaymentService {
   private config: NonNullable<ResolvedConfig["nitro"]>;
@@ -114,10 +92,22 @@ export class PaymentService {
       msg: `Nitro node setup with address ${this.nitro.node.address}`,
     });
 
+    const ratesFileData = readFileSync(
+      path.isAbsolute(this.config.payments.ratesFile)
+        ? this.config.payments.ratesFile
+        : path.resolve(
+            path.dirname(this.common.options.configFile),
+            path.basename(this.config.payments.ratesFile)
+          ),
+      {
+        encoding: "utf-8",
+      }
+    );
+
     this.paymentsManager = new PaymentsManager(
       this.nitro,
-      PAYMENTS_CONFIG,
-      BASE_RATES_CONFIG
+      this.config.payments,
+      JSON.parse(ratesFileData)
     );
 
     const addNitroPeerPromises = Object.values(this.networkPaymentsMap).map(
@@ -336,5 +326,9 @@ export class PaymentService {
       paymentChannel,
       networkPayments.amount
     );
+  }
+
+  isIndexerPaymentConfigured(): boolean {
+    return Boolean(this.indexerPayments);
   }
 }
