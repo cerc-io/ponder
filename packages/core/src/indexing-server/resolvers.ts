@@ -105,14 +105,21 @@ export const getResolvers = ({
       return;
     }
 
-    return {
+    const result: { [key: string]: any } = {
       ...data.block,
       // Set empty fields to satisfy RpcBlock type
       // Following fields are not stored in event store DB by the indexer
       sealFields: [],
       uncles: [],
-      transactions: data.transactions,
     };
+
+    if (filterArgs.fullTransactions) {
+      result.transactions = data.transactions;
+    } else {
+      result.txHashes = data.transactions;
+    }
+
+    return result;
   };
 
   return {

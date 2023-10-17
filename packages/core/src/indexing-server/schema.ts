@@ -59,7 +59,9 @@ export const indexingSchema = `
   type EthRpcBlock {
     ${blockFields}
     sealFields: [String!]!
-    uncles: [String]
+    uncles: [String!]!
+    transactions: [Transaction!]
+    txHashes: [String!]
   }
 
   # src/types/log.ts

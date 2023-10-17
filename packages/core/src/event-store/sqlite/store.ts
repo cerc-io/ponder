@@ -820,7 +820,7 @@ export class SqliteEventStore implements EventStore {
 
     // If neither blockHash or blockNumber is provided, latest block is returned with order and limit query
     const [requestedBlock] = await query
-      .orderBy("blocks.blockNumber", "desc")
+      .orderBy("blocks.number", "desc")
       .limit(1)
       .execute();
 

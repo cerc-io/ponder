@@ -157,8 +157,6 @@ export interface EventStore {
     fullTransactions?: boolean;
     latest?: boolean;
   }): Promise<
-    | { block: Block; transactions: Transaction[] | Hash[] }
-    | undefined
-    | undefined
+    { block: Block; transactions: Transaction[] | Hash[] } | undefined
   >;
 }
