@@ -236,7 +236,9 @@ export class IndexerGQLProvider {
 
     return {
       ...getEthBlock,
-      transactions: getEthBlock.transactions ?? getEthBlock.txHashes,
+      transactions: fullTransactions
+        ? getEthBlock.transactions
+        : getEthBlock.txHashes,
     };
   }
 }

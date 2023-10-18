@@ -96,30 +96,20 @@ export const getResolvers = ({
   const getEthBlock: IFieldResolver<any, unknown> = async (_, args) => {
     const { chainId, ...filterArgs } = args;
 
-    const data = await eventStore.getEthBlock({
+    const rpcBlock = await eventStore.getEthBlock({
       chainId: args.chainId,
       ...filterArgs,
     });
 
-    if (!data) {
+    if (!rpcBlock) {
       return;
     }
 
-    const result: { [key: string]: any } = {
-      ...data.block,
-      // Set empty fields to satisfy RpcBlock type
-      // Following fields are not stored in event store DB by the indexer
-      sealFields: [],
-      uncles: [],
+    return {
+      ...rpcBlock,
+      txHashes: !filterArgs.fullTransactions ? rpcBlock.transactions : null,
+      transactions: filterArgs.fullTransactions ? rpcBlock.transactions : null,
     };
-
-    if (filterArgs.fullTransactions) {
-      result.transactions = data.transactions;
-    } else {
-      result.txHashes = data.transactions;
-    }
-
-    return result;
   };
 
   return {
