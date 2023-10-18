@@ -10,16 +10,13 @@ import type { AppMode } from "./options.js";
 
 export type RemoteNitro = {
   address: string;
+  multiAddr?: string;
   /** Funding amounts for Nitro channels created with the node */
   fundingAmounts: {
     directFund: string;
     virtualFund: string;
   };
 };
-
-type RemoteNetworkNitro = {
-  multiAddr: string;
-} & RemoteNitro;
 
 export type ResolvedConfig = {
   /** Database to use for storing blockchain & entity data. Default: `"postgres"` if `DATABASE_URL` env var is present, otherwise `"sqlite"`. */
@@ -51,7 +48,7 @@ export type ResolvedConfig = {
     /** Configuration of payments required for network requests */
     payments?: {
       /** Config for Nitro node payments will be made to */
-      nitro: RemoteNetworkNitro;
+      nitro: RemoteNitro;
       /** List of RPC methods which require payment */
       paidRPCMethods: string[];
       /** Amount to be paid for each network request */

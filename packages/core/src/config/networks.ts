@@ -45,11 +45,16 @@ export function buildNetwork({
 
     if (network.indexerUrl) {
       // Use IndexerGQLProvider if indexerUrl is set for network
-      customProvider = new IndexerGQLProvider(network, chain, common);
+      customProvider = new IndexerGQLProvider(
+        network,
+        chain,
+        common,
+        paymentService
+      );
     } else {
+      // Use PaidRPCProvider if paymentService and network.payments are configured
+      // Provider is set only for network.rpcUrl and not network.indexerUrl
       if (paymentService && network.payments) {
-        // Use PaidRPCProvider if paymentService and network.payments are configured
-        // Provider is set only for network.rpcUrl and not network.indexerUrl
         customProvider = new PaidRPCProvider(
           network,
           chain,
