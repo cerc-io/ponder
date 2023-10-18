@@ -231,15 +231,15 @@ export class Ponder {
       // that is part of the happy path for `create-ponder`.
       const networksMissingRpcUrl: Network[] = [];
       this.networkSyncServices.forEach(({ network }) => {
-        if (!network.rpcUrl) {
+        if (!network.rpcUrl && !network.indexerUrl) {
           networksMissingRpcUrl.push(network);
         }
       });
       if (networksMissingRpcUrl.length > 0) {
         return new Error(
-          `missing RPC URL for networks (${networksMissingRpcUrl.map(
+          `missing RPC or indexer URL for networks (${networksMissingRpcUrl.map(
             (n) => `"${n.name}"`
-          )}). Did you forget to add an RPC URL in .env.local?`
+          )}). Did you forget to add an RPC or indexer URL in .env.local?`
         );
       }
 
