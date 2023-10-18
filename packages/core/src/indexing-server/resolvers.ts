@@ -1,10 +1,12 @@
 import type { IFieldResolver, IResolvers } from "@graphql-tools/utils";
 import type { PubSub } from "graphql-subscriptions";
+import assert from "node:assert";
 import { createRequire } from "node:module";
-import { type RpcBlock, numberToHex } from "viem";
+import { numberToHex } from "viem";
 
 import type { Network } from "@/config/networks.js";
 import type { EventStore } from "@/event-store/store.js";
+import type { RealtimeSyncService } from "@/realtime-sync/service.js";
 import { blobToBigInt } from "@/utils/decode.js";
 import { intToBlob } from "@/utils/encode.js";
 
@@ -31,12 +33,15 @@ export const getResolvers = ({
   eventStore,
   pubsub,
   networkCheckpoints,
-  networks,
+  networkSyncServices,
 }: {
   eventStore: EventStore;
   pubsub: PubSub;
   networkCheckpoints: NetworkCheckpoints;
-  networks: Network[];
+  networkSyncServices: {
+    network: Network;
+    realtimeSyncService: RealtimeSyncService;
+  }[];
 }): IResolvers<any, unknown> => {
   const getLogEvents: IFieldResolver<any, unknown> = async (_, args) => {
     const { fromTimestamp, toTimestamp, filters, cursor } = args;
@@ -99,23 +104,48 @@ export const getResolvers = ({
 
   const getEthBlock: IFieldResolver<any, unknown> = async (_, args) => {
     const { chainId, ...filterArgs } = args;
-    const { blockHash, blockNumber, fullTransactions } = filterArgs;
-    const blockTag =
+    let { blockNumber } = filterArgs;
+    const { blockHash, fullTransactions } = filterArgs;
+
+    let blockTag =
       blockHash ?? (blockNumber && numberToHex(blockNumber)) ?? "latest";
 
-    let rpcBlock: RpcBlock | null = null;
+    const networkSyncService = networkSyncServices.find(
+      ({ network }) => network.chainId === chainId
+    );
 
-    if (blockTag !== "latest") {
-      // Try fetching block from DB if blockTag is not latest
-      rpcBlock = await eventStore.getEthBlock({
-        chainId: args.chainId,
-        ...filterArgs,
-      });
+    assert(networkSyncService, `chainId ${chainId} not supported by Indexer`);
+    const { network, realtimeSyncService } = networkSyncService;
+
+    // Check for latest blockTag and try to get realtime sync service head block
+    if (blockTag === "latest") {
+      const headBlock = realtimeSyncService.headBlock;
+
+      if (headBlock) {
+        // Set to realtime sync service headBlock if it exists
+        // This is to keep consuming indexer behind this indexer
+        blockTag = numberToHex(headBlock.number);
+        blockNumber = headBlock.number;
+      }
+    }
+
+    // Try fetching block from DB
+    let rpcBlock = await eventStore.getEthBlock({
+      chainId: args.chainId,
+      blockHash,
+      blockNumber,
+      fullTransactions,
+    });
+
+    // If the block is not fetched from DB, check for blockTag
+    // If blockTag is latest, realtime sync service has not started
+    // And no blocks in DB stored by historical sync service
+    // Do not fetch latest block from RPC in this scenario and return null
+    if (!rpcBlock && blockTag == "latest") {
+      return null;
     }
 
     if (!rpcBlock) {
-      const network = networks.find((network) => network.chainId === chainId);
-
       // Fetch from network client if block not found in DB
       // TODO: Cache network RPC calls for already fetched blocks
       rpcBlock = await network!.client.request({
@@ -124,17 +154,15 @@ export const getResolvers = ({
       });
     }
 
-    if (rpcBlock) {
-      return {
-        ...rpcBlock,
-        // sealFields doesn't exist in block returned by RPC endpoint
-        sealFields: rpcBlock.sealFields ?? [],
-        txHashes: !fullTransactions ? rpcBlock.transactions : null,
-        transactions: fullTransactions ? rpcBlock.transactions : null,
-      };
-    }
-
-    return;
+    return rpcBlock
+      ? {
+          ...rpcBlock,
+          // sealFields doesn't exist in block returned by RPC endpoint
+          sealFields: rpcBlock.sealFields ?? [],
+          txHashes: !fullTransactions ? rpcBlock.transactions : null,
+          transactions: fullTransactions ? rpcBlock.transactions : null,
+        }
+      : null;
   };
 
   return {
