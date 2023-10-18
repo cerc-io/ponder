@@ -115,7 +115,12 @@ export class PaymentService {
       async (networkPayments) => {
         // Add nitro node accepting payments for RPC requests
         const { address, multiAddr } = networkPayments.nitro;
-        await this.nitro!.addPeerByMultiaddr(address, multiAddr);
+
+        if (multiAddr) {
+          await this.nitro!.addPeerByMultiaddr(address, multiAddr);
+        } else {
+          await this.connectWithNitroPeers(networkPayments.nitro);
+        }
 
         this.common.logger.info({
           service: "payment",
@@ -123,6 +128,10 @@ export class PaymentService {
         });
       }
     );
+
+    if (this.indexerPayments) {
+      await this.connectWithNitroPeers(this.indexerPayments.nitro);
+    }
 
     this.paymentsManager.subscribeToVouchers();
     await Promise.all(addNitroPeerPromises);
@@ -134,23 +143,6 @@ export class PaymentService {
     ).map(async (networkPayments) => this.setupPaymentChannel(networkPayments));
 
     if (this.indexerPayments) {
-      // Check if indexer Nitro node peer is dialable
-      const [isPeerDialable] = await this.nitro!.isPeerDialable(
-        this.indexerPayments.nitro.address
-      );
-
-      // Wait for peer info of indexer Nitro node to be received if it is not dialable
-      if (!isPeerDialable) {
-        while (true) {
-          const { address } =
-            await this.nitro!.msgService.peerInfoReceived().shift();
-
-          if (address === this.indexerPayments.nitro.address) {
-            break;
-          }
-        }
-      }
-
       await this.setupPaymentChannel(this.indexerPayments);
     }
 
@@ -331,5 +323,19 @@ export class PaymentService {
 
   isIndexerPaymentConfigured(): boolean {
     return Boolean(this.indexerPayments);
+  }
+
+  async connectWithNitroPeers(nitro: RemoteNitro) {
+    const [isPeerDialable] = await this.nitro!.isPeerDialable(nitro.address);
+    if (!isPeerDialable) {
+      while (true) {
+        const { address } =
+          await this.nitro!.msgService.peerInfoReceived().shift();
+
+        if (address === nitro.address) {
+          break;
+        }
+      }
+    }
   }
 }

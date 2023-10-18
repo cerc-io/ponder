@@ -1,10 +1,12 @@
 import { type ApolloClient, type NormalizedCacheObject } from "@apollo/client";
 import apolloClientPkg from "@apollo/client";
+import { PAYMENT_HEADER_KEY } from "@cerc-io/util";
 import assert from "assert";
 import type { Chain } from "viem";
 import { fromHex, RpcRequestError } from "viem";
 
 import type { ResolvedConfig } from "@/config/config.js";
+import type { PaymentService } from "@/payment/service.js";
 import type { Common } from "@/Ponder.js";
 import { createGqlClient } from "@/utils/graphql-client.js";
 // TODO: Add payment to queries
@@ -17,16 +19,18 @@ export class IndexerGQLProvider {
   private chain: Chain;
   private gqlClient: ApolloClient<NormalizedCacheObject>;
   private common: Common;
-
+  private paymentService?: PaymentService;
   constructor(
     network: ResolvedConfig["networks"][0],
     chain: Chain,
-    common: Common
+    common: Common,
+    paymentService?: PaymentService
   ) {
     assert(network.indexerUrl);
     this.network = network;
     this.chain = chain;
     this.common = common;
+    this.paymentService = paymentService;
     this.gqlClient = createGqlClient(network.indexerUrl);
   }
 
@@ -38,11 +42,17 @@ export class IndexerGQLProvider {
     params: unknown | object;
   }): Promise<any> {
     const chain = this.chain;
-    let headers;
+    const headers: { [key: string]: string } = {};
 
     const body = { method, params };
 
     try {
+      if (this.paymentService) {
+        // Create payment voucher before RPC request
+        const voucher = await this.paymentService.payNetwork(this.network.name);
+        headers[PAYMENT_HEADER_KEY] =
+          this.paymentService.getPaymentHeader(voucher);
+      }
       const result = await this.indexerGQLRequest(body, chain.id, headers);
 
       return result;
