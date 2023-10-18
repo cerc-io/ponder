@@ -149,5 +149,5 @@ export interface EventStore {
     blockNumber?: number;
     fullTransactions?: boolean;
     latest?: boolean;
-  }): Promise<RpcBlock | undefined>;
+  }): Promise<RpcBlock | null>;
 }

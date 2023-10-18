@@ -753,7 +753,7 @@ export class SqliteEventStore implements EventStore {
     blockHash?: Hex;
     blockNumber?: number;
     fullTransactions?: boolean;
-  }): Promise<RpcBlock | undefined> {
+  }): Promise<RpcBlock | null> {
     const { chainId, blockHash, blockNumber, fullTransactions = false } = args;
 
     let query = this.db
@@ -846,7 +846,7 @@ export class SqliteEventStore implements EventStore {
       return sqliteToRpcBlock(requestedBlock, rpcTxs);
     }
 
-    return;
+    return null;
   }
 
   private buildFilterAndCmprs(

@@ -786,7 +786,7 @@ export class PostgresEventStore implements EventStore {
   }
 
   // TODO: Implement method
-  async getEthBlock(): Promise<RpcBlock | undefined> {
-    return;
+  async getEthBlock(): Promise<RpcBlock | null> {
+    return null;
   }
 }
