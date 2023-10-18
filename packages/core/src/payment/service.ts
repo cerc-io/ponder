@@ -111,7 +111,6 @@ export class PaymentService {
       JSON.parse(ratesFileData)
     );
 
-    // TODO: refactor to a different method to wait for network nitro nodes to be connected
     const addNitroPeerPromises = Object.values(this.networkPaymentsMap).map(
       async (networkPayments) => {
         // Add nitro node accepting payments for RPC requests
@@ -130,6 +129,10 @@ export class PaymentService {
       }
     );
 
+    if (this.indexerPayments) {
+      await this.connectWithNitroPeers(this.indexerPayments.nitro);
+    }
+
     this.paymentsManager.subscribeToVouchers();
     await Promise.all(addNitroPeerPromises);
   }
@@ -140,9 +143,6 @@ export class PaymentService {
     ).map(async (networkPayments) => this.setupPaymentChannel(networkPayments));
 
     if (this.indexerPayments) {
-      // Check if indexer Nitro node peer is dialable
-      await this.connectWithNitroPeers(this.indexerPayments.nitro);
-
       await this.setupPaymentChannel(this.indexerPayments);
     }
 
