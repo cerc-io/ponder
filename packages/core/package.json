@@ -39,8 +39,8 @@
   "dependencies": {
     "@apollo/client": "^3.8.3",
     "@babel/code-frame": "^7.18.6",
-    "@cerc-io/nitro-node": "^0.1.13",
-    "@cerc-io/nitro-util": "^0.1.13",
+    "@cerc-io/nitro-node": "^v0.1.15",
+    "@cerc-io/nitro-util": "^0.1.15",
     "@cerc-io/peer": "^0.2.60",
     "@cerc-io/util": "^0.2.65",
     "@graphql-tools/schema": "^10.0.0",

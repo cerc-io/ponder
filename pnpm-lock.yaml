@@ -289,11 +289,11 @@ importers:
         specifier: ^7.18.6
         version: 7.22.13
       '@cerc-io/nitro-node':
-        specifier: ^0.1.13
-        version: 0.1.13(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
+        specifier: ^v0.1.15
+        version: 0.1.15(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
       '@cerc-io/nitro-util':
-        specifier: ^0.1.13
-        version: 0.1.13(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
+        specifier: ^0.1.15
+        version: 0.1.15(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
       '@cerc-io/peer':
         specifier: ^0.2.60
         version: 0.2.60
@@ -2104,18 +2104,18 @@ packages:
       - supports-color
     dev: false
 
-  /@cerc-io/nitro-node@0.1.13(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2):
-    resolution: {integrity: sha512-U64qUUjla/sRyfnPC/12qNqDa+5R+1GlVZE1CO50vIhf2wTA2Sr7xwhqbGo277YhjD9xfalyZPZ0BiIvaAXBCQ==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fnitro-node/-/0.1.13/nitro-node-0.1.13.tgz}
+  /@cerc-io/nitro-node@0.1.15(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2):
+    resolution: {integrity: sha512-wE8tWD7m8lZ3TEMnaI19YOiJLA8Sm9UOHsPKzzjCE2xIJ0X5HmSW4qi6BJEGd8VnlFGbBDXzG+O2DBYUWRpi2g==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fnitro-node/-/0.1.15/nitro-node-0.1.15.tgz}
     dependencies:
       '@cerc-io/libp2p': 0.42.2-laconic-0.1.4
-      '@cerc-io/nitro-util': 0.1.13(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
-      '@cerc-io/peer': 0.2.60
+      '@cerc-io/nitro-util': 0.1.15(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
+      '@cerc-io/peer': 0.2.65
       '@cerc-io/ts-channel': 1.0.3-ts-nitro-0.1.1
       '@jpwilliams/waitgroup': 2.1.0
       '@libp2p/crypto': 1.0.17
       '@libp2p/tcp': 6.2.2
       '@multiformats/multiaddr': 11.6.1
-      '@statechannels/nitro-protocol': 2.0.0-alpha.5(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
+      '@statechannels/nitro-protocol': 2.0.1-alpha.5(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
       assert: 2.1.0
       async-mutex: 0.4.0
       debug: 4.3.4(supports-color@8.1.1)
@@ -2138,11 +2138,11 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@cerc-io/nitro-util@0.1.13(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2):
-    resolution: {integrity: sha512-jlGGaGx6YGbiNDSqQvoAFt7GcYTH2rQT2iAnnb33IglnzQvcjyczJws+jMoPPauvcw1bhG5VxKvL529otm0Nbw==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fnitro-util/-/0.1.13/nitro-util-0.1.13.tgz}
+  /@cerc-io/nitro-util@0.1.15(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2):
+    resolution: {integrity: sha512-ByFq+Ne8dUp2omvm2Wui19r22CvXmdIJeAnN+8BhCU/B0e01zHgPhoaoQ3FX5F/NFG7+eiuFHpVdmBRq+cbnUA==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Fnitro-util/-/0.1.15/nitro-util-0.1.15.tgz}
     dependencies:
       '@cerc-io/ts-channel': 1.0.3-ts-nitro-0.1.1
-      '@statechannels/nitro-protocol': 2.0.0-alpha.5(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
+      '@statechannels/nitro-protocol': 2.0.1-alpha.5(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
       assert: 2.1.0
       debug: 4.3.4(supports-color@8.1.1)
       ethers: 5.7.2
@@ -2257,7 +2257,7 @@ packages:
     resolution: {integrity: sha512-b3Hvb2oJ+HFVVUFgHzJ10gx7v83dnQ4eLAV2s/ZQvpPJQK2p4+NHtS91VCNq3tK+AT81h0Yp3V3Fc5aUfk/kLQ==, tarball: https://git.vdb.to/api/packages/cerc-io/npm/%40cerc-io%2Futil/-/0.2.65/util-0.2.65.tgz}
     dependencies:
       '@apollo/utils.keyvaluecache': 1.0.2
-      '@cerc-io/nitro-node': 0.1.13(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
+      '@cerc-io/nitro-node': 0.1.15(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(typechain@7.0.1)(typescript@5.2.2)
       '@cerc-io/peer': 0.2.65
       '@cerc-io/solidity-mapper': 0.2.65
       '@cerc-io/ts-channel': 1.0.3-ts-nitro-0.1.1
@@ -4780,8 +4780,8 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@statechannels/nitro-protocol@2.0.0-alpha.5(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@7.0.1)(typescript@5.2.2):
-    resolution: {integrity: sha512-b4rlq0D97MidlKL3MxOsn1Rtl5VzH26xyvVSe8iZXapUdpYfsIH8Nj5PqVki7drFJWVYjVTjwDwc5pvRW8jNbg==}
+  /@statechannels/nitro-protocol@2.0.1-alpha.5(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@7.0.1)(typescript@5.2.2):
+    resolution: {integrity: sha512-CT32i5ZlZ0Jz8mAOmywALCnS/+Cl7ntrRlJr2r3jGBkkzNBWxHWR4qXg6HTUh7xxm5tY/g/TSmsGH8/z54K/Sw==}
     engines: {node: '>=18.5.0'}
     dependencies:
       '@openzeppelin/contracts': 4.9.3
