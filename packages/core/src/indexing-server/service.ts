@@ -30,6 +30,7 @@ export class IndexingServerService {
   private pubsub: PubSub;
   private server: Server;
   private paymentService?: PaymentService;
+  private networks: Network[];
 
   // Per-network checkpoints.
   private networkCheckpoints: NetworkCheckpoints;
@@ -52,6 +53,7 @@ export class IndexingServerService {
     this.common = common;
     this.eventStore = eventStore;
     this.paymentService = paymentService;
+    this.networks = networks;
 
     this.server = new Server({
       common,
@@ -61,7 +63,7 @@ export class IndexingServerService {
     // https://www.apollographql.com/docs/apollo-server/data/subscriptions#the-pubsub-class
     this.pubsub = new PubSub();
 
-    this.networkCheckpoints = networks.reduce(
+    this.networkCheckpoints = this.networks.reduce(
       (acc: NetworkCheckpoints, network) => {
         acc[network.chainId] = {
           isHistoricalSyncComplete: false,
@@ -88,6 +90,7 @@ export class IndexingServerService {
         eventStore: this.eventStore,
         pubsub: this.pubsub,
         networkCheckpoints: this.networkCheckpoints,
+        networks: this.networks,
       }),
     });
 

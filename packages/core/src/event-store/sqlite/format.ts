@@ -68,7 +68,9 @@ export function sqliteToRpcBlock(
   transactions: RpcTransaction[] | Hash[]
 ): RpcBlock {
   return {
-    baseFeePerGas: block.baseFeePerGas ? toHex(block.baseFeePerGas) : null,
+    baseFeePerGas: block.baseFeePerGas
+      ? toHex(blobToBigInt(block.baseFeePerGas))
+      : null,
     difficulty: toHex(blobToBigInt(block.difficulty)),
     extraData: block.extraData,
     gasLimit: toHex(blobToBigInt(block.gasLimit)),
@@ -196,8 +198,10 @@ export function sqliteToRpcTransaction(
     accessList: JSON.parse(transaction.accessList!),
     chainId: toHex(transaction.chainId),
     type: transaction.type as "0x2",
-    maxFeePerGas: toHex(transaction.maxFeePerGas!),
-    maxPriorityFeePerGas: toHex(transaction.maxPriorityFeePerGas!),
+    maxFeePerGas: toHex(blobToBigInt(transaction.maxFeePerGas!)),
+    maxPriorityFeePerGas: toHex(
+      blobToBigInt(transaction.maxPriorityFeePerGas!)
+    ),
   };
 }
 

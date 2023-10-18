@@ -234,11 +234,15 @@ export class IndexerGQLProvider {
       },
     });
 
-    return {
-      ...getEthBlock,
-      transactions: fullTransactions
-        ? getEthBlock.transactions
-        : getEthBlock.txHashes,
-    };
+    if (getEthBlock) {
+      return {
+        ...getEthBlock,
+        transactions: fullTransactions
+          ? getEthBlock.transactions
+          : getEthBlock.txHashes,
+      };
+    }
+
+    return null;
   }
 }

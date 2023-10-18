@@ -1,7 +1,9 @@
 import type { IFieldResolver, IResolvers } from "@graphql-tools/utils";
 import type { PubSub } from "graphql-subscriptions";
 import { createRequire } from "node:module";
+import { type RpcBlock, numberToHex } from "viem";
 
+import type { Network } from "@/config/networks.js";
 import type { EventStore } from "@/event-store/store.js";
 import { blobToBigInt } from "@/utils/decode.js";
 import { intToBlob } from "@/utils/encode.js";
@@ -29,10 +31,12 @@ export const getResolvers = ({
   eventStore,
   pubsub,
   networkCheckpoints,
+  networks,
 }: {
   eventStore: EventStore;
   pubsub: PubSub;
   networkCheckpoints: NetworkCheckpoints;
+  networks: Network[];
 }): IResolvers<any, unknown> => {
   const getLogEvents: IFieldResolver<any, unknown> = async (_, args) => {
     const { fromTimestamp, toTimestamp, filters, cursor } = args;
@@ -95,21 +99,42 @@ export const getResolvers = ({
 
   const getEthBlock: IFieldResolver<any, unknown> = async (_, args) => {
     const { chainId, ...filterArgs } = args;
+    const { blockHash, blockNumber, fullTransactions } = filterArgs;
+    const blockTag =
+      blockHash ?? (blockNumber && numberToHex(blockNumber)) ?? "latest";
 
-    const rpcBlock = await eventStore.getEthBlock({
-      chainId: args.chainId,
-      ...filterArgs,
-    });
+    let rpcBlock: RpcBlock | null = null;
 
-    if (!rpcBlock) {
-      return;
+    if (blockTag !== "latest") {
+      // Try fetching block from DB if blockTag is not latest
+      rpcBlock = await eventStore.getEthBlock({
+        chainId: args.chainId,
+        ...filterArgs,
+      });
     }
 
-    return {
-      ...rpcBlock,
-      txHashes: !filterArgs.fullTransactions ? rpcBlock.transactions : null,
-      transactions: filterArgs.fullTransactions ? rpcBlock.transactions : null,
-    };
+    if (!rpcBlock) {
+      const network = networks.find((network) => network.chainId === chainId);
+
+      // Fetch from network client if block not found in DB
+      // TODO: Cache network RPC calls for already fetched blocks
+      rpcBlock = await network!.client.request({
+        method: blockHash ? "eth_getBlockByHash" : "eth_getBlockByNumber",
+        params: [blockTag, fullTransactions],
+      });
+    }
+
+    if (rpcBlock) {
+      return {
+        ...rpcBlock,
+        // sealFields doesn't exist in block returned by RPC endpoint
+        sealFields: rpcBlock.sealFields ?? [],
+        txHashes: !fullTransactions ? rpcBlock.transactions : null,
+        transactions: fullTransactions ? rpcBlock.transactions : null,
+      };
+    }
+
+    return;
   };
 
   return {
