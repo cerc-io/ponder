@@ -5,8 +5,10 @@ import {
   type RpcLog,
   type RpcTransaction,
   hexToNumber,
+  toHex,
 } from "viem";
 
+import { blobToBigInt } from "@/utils/decode.js";
 import { intToBlob } from "@/utils/encode.js";
 
 type BlocksTable = {
@@ -58,6 +60,39 @@ export function rpcToSqliteBlock(
     timestamp: intToBlob(block.timestamp),
     totalDifficulty: intToBlob(block.totalDifficulty!),
     transactionsRoot: block.transactionsRoot,
+  };
+}
+
+export function sqliteToRpcBlock(
+  block: Omit<InsertableBlock, "chainId">,
+  transactions: RpcTransaction[] | Hash[]
+): RpcBlock {
+  return {
+    baseFeePerGas: block.baseFeePerGas ? toHex(block.baseFeePerGas) : null,
+    difficulty: toHex(blobToBigInt(block.difficulty)),
+    extraData: block.extraData,
+    gasLimit: toHex(blobToBigInt(block.gasLimit)),
+    gasUsed: toHex(blobToBigInt(block.gasUsed)),
+    hash: block.hash,
+    logsBloom: block.logsBloom,
+    miner: block.miner,
+    mixHash: block.mixHash,
+    nonce: block.nonce,
+    number: toHex(blobToBigInt(block.number)),
+    parentHash: block.parentHash,
+    receiptsRoot: block.receiptsRoot,
+    sha3Uncles: block.sha3Uncles,
+    size: toHex(blobToBigInt(block.size)),
+    stateRoot: block.stateRoot,
+    timestamp: toHex(blobToBigInt(block.timestamp)),
+    totalDifficulty: toHex(blobToBigInt(block.totalDifficulty)),
+    transactions,
+    transactionsRoot: block.transactionsRoot,
+
+    // Set empty fields to satisfy RpcBlock type
+    // Following fields are not stored in event store DB by the indexer
+    sealFields: [],
+    uncles: [],
   };
 }
 
@@ -118,6 +153,54 @@ export function rpcToSqliteTransaction(
   };
 }
 
+export function sqliteToRpcTransaction(
+  transaction: InsertableTransaction
+): RpcTransaction {
+  const txWithoutFeeValues = {
+    blockHash: transaction.blockHash,
+    blockNumber: toHex(blobToBigInt(transaction.blockNumber)),
+    from: transaction.from,
+    gas: toHex(blobToBigInt(transaction.gas)),
+    hash: transaction.hash,
+    input: transaction.input,
+    nonce: toHex(transaction.nonce),
+    r: transaction.r,
+    s: transaction.s,
+    to: transaction.to ?? null,
+    transactionIndex: toHex(transaction.transactionIndex),
+    v: toHex(blobToBigInt(transaction.v)),
+    value: toHex(blobToBigInt(transaction.value)),
+  };
+
+  if (transaction.type === "0x0") {
+    return {
+      ...txWithoutFeeValues,
+      chainId: toHex(transaction.chainId),
+      type: transaction.type,
+      gasPrice: toHex(blobToBigInt(transaction.gasPrice!)),
+    };
+  }
+
+  if (transaction.type === "0x1") {
+    return {
+      ...txWithoutFeeValues,
+      accessList: JSON.parse(transaction.accessList!),
+      chainId: toHex(transaction.chainId),
+      type: transaction.type,
+      gasPrice: toHex(blobToBigInt(transaction.gasPrice!)),
+    };
+  }
+
+  return {
+    ...txWithoutFeeValues,
+    accessList: JSON.parse(transaction.accessList!),
+    chainId: toHex(transaction.chainId),
+    type: transaction.type as "0x2",
+    maxFeePerGas: toHex(transaction.maxFeePerGas!),
+    maxPriorityFeePerGas: toHex(transaction.maxPriorityFeePerGas!),
+  };
+}
+
 type LogsTable = {
   id: string;
   address: Address;
@@ -152,6 +235,25 @@ export function rpcToSqliteLog(log: RpcLog): Omit<InsertableLog, "chainId"> {
     topic3: log.topics[3] ? log.topics[3] : null,
     transactionHash: log.transactionHash!,
     transactionIndex: Number(log.transactionIndex!),
+  };
+}
+
+export function sqliteToRpcLog(
+  log: Omit<InsertableLog, "chainId">,
+  removed = false
+): RpcLog {
+  return {
+    address: log.address,
+    blockHash: log.blockHash!,
+    blockNumber: toHex(blobToBigInt(log.blockNumber!)),
+    data: log.data,
+    logIndex: toHex(log.logIndex!),
+    topics: [log.topic0, log.topic1, log.topic2, log.topic3].filter(
+      (t): t is Hex => t !== null
+    ) as [Hex, ...Hex[]] | [],
+    transactionHash: log.transactionHash!,
+    transactionIndex: toHex(log.transactionIndex!),
+    removed,
   };
 }
 

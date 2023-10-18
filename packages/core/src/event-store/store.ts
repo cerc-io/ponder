@@ -140,5 +140,14 @@ export interface EventStore {
     fromBlock?: number;
     toBlock?: number;
     blockHash?: Hex;
-  }): Promise<Log[]>;
+  }): Promise<RpcLog[]>;
+
+  // TODO: Implement method in postgres eventStore for getting blocks
+  getEthBlock(args: {
+    chainId: number;
+    blockHash?: Hex;
+    blockNumber?: number;
+    fullTransactions?: boolean;
+    latest?: boolean;
+  }): Promise<RpcBlock | undefined>;
 }

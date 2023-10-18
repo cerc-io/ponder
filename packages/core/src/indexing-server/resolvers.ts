@@ -93,6 +93,25 @@ export const getResolvers = ({
     });
   };
 
+  const getEthBlock: IFieldResolver<any, unknown> = async (_, args) => {
+    const { chainId, ...filterArgs } = args;
+
+    const rpcBlock = await eventStore.getEthBlock({
+      chainId: args.chainId,
+      ...filterArgs,
+    });
+
+    if (!rpcBlock) {
+      return;
+    }
+
+    return {
+      ...rpcBlock,
+      txHashes: !filterArgs.fullTransactions ? rpcBlock.transactions : null,
+      transactions: filterArgs.fullTransactions ? rpcBlock.transactions : null,
+    };
+  };
+
   return {
     BigInt: new ApolloBigInt("bigInt"),
 
@@ -100,6 +119,7 @@ export const getResolvers = ({
       getLogEvents,
       getNetworkHistoricalSync,
       getEthLogs,
+      getEthBlock,
     },
 
     Subscription: {

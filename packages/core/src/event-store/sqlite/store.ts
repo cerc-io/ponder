@@ -28,6 +28,9 @@ import {
   rpcToSqliteBlock,
   rpcToSqliteLog,
   rpcToSqliteTransaction,
+  sqliteToRpcBlock,
+  sqliteToRpcLog,
+  sqliteToRpcTransaction,
 } from "./format.js";
 import { migrationProvider } from "./migrations.js";
 
@@ -700,7 +703,7 @@ export class SqliteEventStore implements EventStore {
     fromBlock?: number;
     toBlock?: number;
     blockHash?: Hex;
-  }): Promise<Log[]> {
+  }): Promise<RpcLog[]> {
     const { blockHash, ...commonFilterArgs } = args;
 
     assert(
@@ -741,21 +744,109 @@ export class SqliteEventStore implements EventStore {
       .execute();
 
     return requestedLogs.map((row) => {
-      return {
-        address: row.address,
-        blockHash: row.blockHash,
-        blockNumber: blobToBigInt(row.blockNumber),
-        data: row.data,
-        id: row.id,
-        logIndex: Number(row.logIndex),
-        removed: false,
-        topics: [row.topic0, row.topic1, row.topic2, row.topic3].filter(
-          (t): t is Hex => t !== null
-        ) as [Hex, ...Hex[]] | [],
-        transactionHash: row.transactionHash,
-        transactionIndex: Number(row.transactionIndex),
-      };
+      return sqliteToRpcLog(row);
     });
+  }
+
+  async getEthBlock(args: {
+    chainId: number;
+    blockHash?: Hex;
+    blockNumber?: number;
+    fullTransactions?: boolean;
+  }): Promise<RpcBlock | undefined> {
+    const { chainId, blockHash, blockNumber, fullTransactions = false } = args;
+
+    let query = this.db
+      .selectFrom("blocks")
+      .select([
+        "blocks.baseFeePerGas",
+        "blocks.chainId",
+        "blocks.difficulty",
+        "blocks.extraData",
+        "blocks.gasLimit",
+        "blocks.gasUsed",
+        "blocks.hash",
+        "blocks.logsBloom",
+        "blocks.miner",
+        "blocks.mixHash",
+        "blocks.nonce",
+        "blocks.number",
+        "blocks.parentHash",
+        "blocks.receiptsRoot",
+        "blocks.sha3Uncles",
+        "blocks.size",
+        "blocks.stateRoot",
+        "blocks.timestamp",
+        "blocks.totalDifficulty",
+        "blocks.transactionsRoot",
+      ])
+      .where("blocks.chainId", "=", sql`cast (${sql.val(chainId)} as integer)`);
+
+    if (blockHash) {
+      query = query.where("blocks.hash", "=", blockHash);
+    }
+
+    if (blockNumber) {
+      query = query.where(
+        "blocks.number",
+        "=",
+        sql`cast (${sql.val(intToBlob(blockNumber))} as blob)`
+      );
+    }
+
+    // If neither blockHash or blockNumber is provided, latest block is returned with order and limit query
+    const [requestedBlock] = await query
+      .orderBy("blocks.number", "desc")
+      .limit(1)
+      .execute();
+
+    if (requestedBlock) {
+      const txsQuery = this.db
+        .selectFrom("transactions")
+        .select([
+          "transactions.hash",
+          "transactions.blockHash",
+          "transactions.chainId",
+        ])
+        .where(
+          "transactions.chainId",
+          "=",
+          sql`cast (${sql.val(chainId)} as integer)`
+        )
+        .where("transactions.blockHash", "=", requestedBlock.hash)
+        .$if(fullTransactions, (qb) =>
+          qb.select([
+            "transactions.accessList",
+            "transactions.blockNumber",
+            "transactions.from",
+            "transactions.gas",
+            "transactions.gasPrice",
+            "transactions.input",
+            "transactions.maxFeePerGas",
+            "transactions.maxPriorityFeePerGas",
+            "transactions.nonce",
+            "transactions.r",
+            "transactions.s",
+            "transactions.to",
+            "transactions.transactionIndex",
+            "transactions.type",
+            "transactions.value",
+            "transactions.v",
+          ])
+        );
+
+      const requestedTxs = await txsQuery.execute();
+
+      const rpcTxs = fullTransactions
+        ? requestedTxs.map((tx) =>
+            sqliteToRpcTransaction(tx as InsertableTransaction)
+          )
+        : requestedTxs.map((tx) => tx.hash);
+
+      return sqliteToRpcBlock(requestedBlock, rpcTxs);
+    }
+
+    return;
   }
 
   private buildFilterAndCmprs(

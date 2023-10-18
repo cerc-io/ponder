@@ -82,12 +82,17 @@ export class RealtimeSyncService extends Emittery<RealtimeSyncEvents> {
       1
     );
 
-    // Set the finalized block number according to the network's finality threshold.
-    // If the finality block count is greater than the latest block number, set to zero.
-    const finalizedBlockNumber = Math.max(
-      0,
-      latestBlockNumber - this.network.finalityBlockCount
-    );
+    let finalizedBlockNumber = latestBlockNumber;
+
+    // Calculate finalizedBlockNumber incase network is not using indexer GQL endpoint
+    if (!this.network.indexerUrl) {
+      // Set the finalized block number according to the network's finality threshold.
+      // If the finality block count is greater than the latest block number, set to zero.
+      finalizedBlockNumber = Math.max(
+        0,
+        latestBlockNumber - this.network.finalityBlockCount
+      );
+    }
     this.finalizedBlockNumber = finalizedBlockNumber;
 
     // Add the latest block to the unfinalized block queue.

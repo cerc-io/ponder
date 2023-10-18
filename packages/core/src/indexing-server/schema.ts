@@ -10,6 +10,28 @@ const ethRpcLogFields = `
   transactionIndex: Int!
 `;
 
+const blockFields = `
+  baseFeePerGas: BigInt
+  difficulty: BigInt!
+  extraData: String!
+  gasLimit: BigInt!
+  gasUsed: BigInt!
+  hash: String!
+  logsBloom: String!
+  miner: String!
+  mixHash: String!
+  nonce: String!
+  number: BigInt!
+  parentHash: String!
+  receiptsRoot: String!
+  sha3Uncles: String!
+  size: BigInt!
+  stateRoot: String!
+  timestamp: BigInt!
+  totalDifficulty: BigInt!
+  transactionsRoot: String!
+`;
+
 export const indexingSchema = `
   scalar BigInt
 
@@ -34,6 +56,14 @@ export const indexingSchema = `
     ${ethRpcLogFields}
   }
 
+  type EthRpcBlock {
+    ${blockFields}
+    sealFields: [String!]!
+    uncles: [String!]!
+    transactions: [Transaction!]
+    txHashes: [String!]
+  }
+
   # src/types/log.ts
   type Log {
     ${ethRpcLogFields}
@@ -42,25 +72,7 @@ export const indexingSchema = `
 
   # src/types/log.ts
   type Block {
-    baseFeePerGas: BigInt
-    difficulty: BigInt!
-    extraData: String!
-    gasLimit: BigInt!
-    gasUsed: BigInt!
-    hash: String!
-    logsBloom: String!
-    miner: String!
-    mixHash: String!
-    nonce: String!
-    number: BigInt!
-    parentHash: String!
-    receiptsRoot: String!
-    sha3Uncles: String!
-    size: BigInt!
-    stateRoot: String!
-    timestamp: BigInt!
-    totalDifficulty: BigInt!
-    transactionsRoot: String!
+    ${blockFields}
   }
 
   type AccessListItem {
@@ -147,6 +159,13 @@ export const indexingSchema = `
       toBlock: Int
       blockHash: String
     ): [EthRpcLog!]
+
+    getEthBlock(
+      chainId: Int!
+      blockNumber: Int
+      blockHash: String
+      fullTransactions: Boolean
+    ): EthRpcBlock
   }
 
   type Checkpoint {

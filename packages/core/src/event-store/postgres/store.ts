@@ -781,7 +781,12 @@ export class PostgresEventStore implements EventStore {
   }
 
   // TODO: Implement method
-  async getEthLogs(): Promise<Log[]> {
+  async getEthLogs(): Promise<RpcLog[]> {
     return [];
+  }
+
+  // TODO: Implement method
+  async getEthBlock(): Promise<RpcBlock | undefined> {
+    return;
   }
 }
