@@ -117,6 +117,7 @@ export const getResolvers = ({
       const network = networks.find((network) => network.chainId === chainId);
 
       // Fetch from network client if block not found in DB
+      // TODO: Cache network RPC calls for already fetched blocks
       rpcBlock = await network!.client.request({
         method: blockHash ? "eth_getBlockByHash" : "eth_getBlockByNumber",
         params: [blockTag, fullTransactions],

@@ -37,6 +37,11 @@ export const createGqlClient = (gqlEndpoint: string) => {
   const client = new ApolloClient({
     link: splitLink,
     cache: new InMemoryCache(),
+    defaultOptions: {
+      query: {
+        fetchPolicy: "no-cache",
+      },
+    },
   });
 
   return client;
