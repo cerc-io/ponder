@@ -2,7 +2,7 @@ import type { IFieldResolver, IResolvers } from "@graphql-tools/utils";
 import type { PubSub } from "graphql-subscriptions";
 import assert from "node:assert";
 import { createRequire } from "node:module";
-import { numberToHex } from "viem";
+import { type RpcBlock, numberToHex } from "viem";
 
 import type { Network } from "@/config/networks.js";
 import type { EventStore } from "@/event-store/store.js";
@@ -129,13 +129,17 @@ export const getResolvers = ({
       }
     }
 
-    // Try fetching block from DB
-    let rpcBlock = await eventStore.getEthBlock({
-      chainId: args.chainId,
-      blockHash,
-      blockNumber,
-      fullTransactions,
-    });
+    let rpcBlock: RpcBlock | null = null;
+
+    if (blockHash || blockNumber) {
+      // Try fetching block from DB if blockHash or blockNumber specified
+      rpcBlock = await eventStore.getEthBlock({
+        chainId: args.chainId,
+        blockHash,
+        blockNumber,
+        fullTransactions,
+      });
+    }
 
     // If the block is not fetched from DB, check for blockTag
     // If blockTag is latest, realtime sync service has not started

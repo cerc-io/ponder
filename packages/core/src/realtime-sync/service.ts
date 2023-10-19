@@ -70,7 +70,7 @@ export class RealtimeSyncService extends Emittery<RealtimeSyncEvents> {
   get headBlock() {
     const blocksLength = this.blocks.length;
 
-    return blocksLength ? this.blocks[blocksLength] : null;
+    return blocksLength ? this.blocks[blocksLength - 1] : null;
   }
 
   setup = async () => {
