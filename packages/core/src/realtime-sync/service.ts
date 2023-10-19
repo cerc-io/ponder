@@ -67,6 +67,12 @@ export class RealtimeSyncService extends Emittery<RealtimeSyncEvents> {
     this.queue = this.buildQueue();
   }
 
+  get headBlock() {
+    const blocksLength = this.blocks.length;
+
+    return blocksLength ? this.blocks[blocksLength - 1] : null;
+  }
+
   setup = async () => {
     // Fetch the latest block for the network.
     const latestBlock = await this.getLatestBlock();

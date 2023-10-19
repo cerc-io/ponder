@@ -11,6 +11,7 @@ import type { Network } from "@/config/networks.js";
 import type { EventStore } from "@/event-store/store.js";
 import type { PaymentService } from "@/payment/service.js";
 import type { Common } from "@/Ponder.js";
+import type { RealtimeSyncService } from "@/realtime-sync/service.js";
 import { Server } from "@/utils/server.js";
 
 import type { NetworkCheckpoints } from "./resolvers.js";
@@ -30,7 +31,11 @@ export class IndexingServerService {
   private pubsub: PubSub;
   private server: Server;
   private paymentService?: PaymentService;
-  private networks: Network[];
+
+  private networkSyncServices: {
+    network: Network;
+    realtimeSyncService: RealtimeSyncService;
+  }[];
 
   // Per-network checkpoints.
   private networkCheckpoints: NetworkCheckpoints;
@@ -42,18 +47,21 @@ export class IndexingServerService {
   constructor({
     common,
     eventStore,
-    networks,
+    networkSyncServices,
     paymentService,
   }: {
     common: Common;
     eventStore: EventStore;
-    networks: Network[];
+    networkSyncServices: {
+      network: Network;
+      realtimeSyncService: RealtimeSyncService;
+    }[];
     paymentService?: PaymentService;
   }) {
     this.common = common;
     this.eventStore = eventStore;
     this.paymentService = paymentService;
-    this.networks = networks;
+    this.networkSyncServices = networkSyncServices;
 
     this.server = new Server({
       common,
@@ -63,8 +71,8 @@ export class IndexingServerService {
     // https://www.apollographql.com/docs/apollo-server/data/subscriptions#the-pubsub-class
     this.pubsub = new PubSub();
 
-    this.networkCheckpoints = this.networks.reduce(
-      (acc: NetworkCheckpoints, network) => {
+    this.networkCheckpoints = this.networkSyncServices.reduce(
+      (acc: NetworkCheckpoints, { network }) => {
         acc[network.chainId] = {
           isHistoricalSyncComplete: false,
           historicalCheckpoint: 0,
@@ -90,7 +98,7 @@ export class IndexingServerService {
         eventStore: this.eventStore,
         pubsub: this.pubsub,
         networkCheckpoints: this.networkCheckpoints,
-        networks: this.networks,
+        networkSyncServices: this.networkSyncServices,
       }),
     });
 

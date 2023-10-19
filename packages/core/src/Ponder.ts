@@ -163,8 +163,8 @@ export class Ponder {
     this.indexingServerService = new IndexingServerService({
       common,
       eventStore: this.eventStore,
-      networks,
       paymentService: this.paymentService,
+      networkSyncServices: this.networkSyncServices,
     });
 
     const gqlClient = createGqlClient(
